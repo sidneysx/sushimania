@@ -83,9 +83,19 @@ export default function ModalCarrinho() {
 
   if (!aberto) return null
 
+  // Fechar (para escolher mais itens ou depois de enviar): volta à etapa 1 e limpa os
+  // dados da etapa 2. Os itens do carrinho continuam (só são limpos ao enviar o pedido).
   const fechar = () => {
     setAberto(false)
     setEtapa(1)
+    setEndereco(ENDERECO_VAZIO)
+  }
+
+  const voltar = () => {
+    const anterior = etapaAtual - 1
+    setEtapa(anterior)
+    // da etapa 2 de volta ao carrinho: limpa os dados de entrega; da 3 para a 2 mantém (é só revisão)
+    if (anterior === 1) setEndereco(ENDERECO_VAZIO)
   }
 
   const avancarParaEndereco = () => {
@@ -182,7 +192,7 @@ export default function ModalCarrinho() {
 
           <div className="flex gap-3">
             {etapaAtual > 1 && (
-              <button onClick={() => setEtapa(etapaAtual - 1)} className="rounded-full border border-gray-200 px-6 py-2 font-semibold">
+              <button onClick={voltar} className="rounded-full border border-gray-200 px-6 py-2 font-semibold">
                 Voltar
               </button>
             )}
