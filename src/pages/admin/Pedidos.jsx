@@ -174,6 +174,16 @@ export default function Pedidos() {
                               <b>{p.bairro}</b>
                               <span className="block text-neutral-600">{p.endereco}</span>
                               {p.cep && <span className="block text-xs text-neutral-500">CEP informado: {p.cep}</span>}
+                              {p.localizacao && (
+                                <a
+                                  href={`https://www.google.com/maps?q=${p.localizacao}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-marca hover:underline"
+                                >
+                                  <MapPin className="size-3.5" /> Abrir no mapa (GPS do cliente)
+                                </a>
+                              )}
                             </span>
                           </p>
                           <p className="flex gap-2">

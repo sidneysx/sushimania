@@ -37,8 +37,11 @@ export default function EtapaResumo({ endereco }) {
             {endereco.endereco}, {endereco.numero}, {endereco.bairro}
           </p>
           <p className="text-sm text-gray-600">
-            {endereco.cidade}-{endereco.uf} / {endereco.cep} {endereco.complemento}
+            {[endereco.cidade && `${endereco.cidade}${endereco.uf ? `-${endereco.uf}` : ''}`, endereco.cep && `CEP ${endereco.cep}`, endereco.complemento]
+              .filter(Boolean)
+              .join(' · ')}
           </p>
+          {endereco.localizacao && <p className="text-xs text-green-700">📍 Localização do GPS anexada</p>}
         </div>
       </div>
 

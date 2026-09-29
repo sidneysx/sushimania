@@ -24,13 +24,13 @@ export async function excluirBairro(id) {
   if (error) throw error
 }
 
-// "Jardim São Luís" e "JARDIM SAO LUIS" viram a mesma chave
+// "Jardim São Luís", "JARDIM SAO LUIS" e "Beira-Rio"/"Beira Rio" viram a mesma chave
 export const normalizarBairro = (nome = '') =>
   nome
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toUpperCase()
-    .replace(/\s+/g, ' ')
+    .replace(/[^A-Z0-9]+/g, ' ')
     .trim()
 
 export const atende = (b) => b.ativo && Number(b.taxa) > 0

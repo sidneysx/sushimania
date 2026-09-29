@@ -21,12 +21,24 @@ const ENDERECO_VAZIO = {
   cep: '',
   numero: '',
   complemento: '',
+  localizacao: '', // "lat,lng" do botão "Usar minha localização"
   ...DADOS_DO_CEP,
   ...DADOS_DO_BAIRRO,
 }
 
-const enderecoCompleto = (e) =>
-  `${e.endereco}, ${e.numero}${e.complemento ? ` (${e.complemento})` : ''} - ${bairroDoPedido(e)}, ${e.cidade}-${e.uf} / ${e.cep}`
+const enderecoCompleto = (e) => {
+  const cidade = e.cidade ? `${e.cidade}${e.uf ? `-${e.uf}` : ''}` : ''
+  return [
+    `${e.endereco}, ${e.numero}${e.complemento ? ` (${e.complemento})` : ''}`,
+    bairroDoPedido(e),
+    cidade,
+    e.cep ? `CEP ${e.cep}` : '',
+  ]
+    .filter(Boolean)
+    .join(' - ')
+}
+
+const linkMapa = (localizacao) => `https://www.google.com/maps?q=${localizacao}`
 
 function montarMensagem(codigo, itens, e, subtotal) {
   const linhas = [
@@ -40,6 +52,7 @@ function montarMensagem(codigo, itens, e, subtotal) {
     '',
     '*Endereço de entrega:*',
     enderecoCompleto(e),
+    ...(e.localizacao ? [`📍 Localização: ${linkMapa(e.localizacao)}`] : []),
     '',
     `*Pagamento:* ${e.pagamento}${e.pagamento === 'Dinheiro' && e.troco.trim() ? ` (troco para ${e.troco.trim()})` : ''}`,
   ]
@@ -104,7 +117,8 @@ export default function ModalCarrinho() {
       troco: endereco.pagamento === 'Dinheiro' ? endereco.troco.trim() || null : null,
       endereco: enderecoCompleto(endereco),
       bairro: bairroDoPedido(endereco),
-      cep: endereco.cep,
+      cep: endereco.cep || null,
+      localizacao: endereco.localizacao || null,
       itens: itens.map(({ id, nome, qntd, preco, imagem_url }) => ({ id, nome, qtd: qntd, preco: Number(preco), imagem_url })),
       // subtotal, taxa e total são recalculados pelo banco (gatilho validar_pedido)
       subtotal: totais.subtotal,
