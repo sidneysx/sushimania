@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'motion/react'
 import { AlertTriangle, Bike, ChevronDown, CreditCard, MapPin, Search, ShoppingBag, Trash2 } from 'lucide-react'
 import { alterarStatusPedido, excluirPedido } from '../../services/pedidos'
@@ -11,7 +12,17 @@ export default function Pedidos() {
   const { pedidos, produtos, recarregar, avisar } = usePainel()
   const [filtro, setFiltro] = useState(null)
   const [busca, setBusca] = useState('')
-  const [aberto, setAberto] = useState(null)
+  const [params] = useSearchParams()
+  const [aberto, setAberto] = useState(params.get('pedido'))
+
+  // Veio do sino (?pedido=id): mostra todos os status e já abre aquele pedido
+  useEffect(() => {
+    const id = params.get('pedido')
+    if (!id) return
+    setFiltro(null)
+    setAberto(id)
+    document.getElementById(`pedido-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [params])
   const [apagando, setApagando] = useState(null)
   const [confirmando, setConfirmando] = useState(false)
 
@@ -93,7 +104,7 @@ export default function Pedidos() {
             const expandido = aberto === p.id
             const qtdItens = p.itens.reduce((t, i) => t + (i.qtd ?? 1), 0)
             return (
-              <li key={p.id} className="overflow-hidden rounded-2xl border border-neutral-200/80 bg-white shadow-sm">
+              <li key={p.id} id={`pedido-${p.id}`} className="scroll-mt-28 overflow-hidden rounded-2xl border border-neutral-200/80 bg-white shadow-sm">
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2 p-4">
                   <button onClick={() => setAberto(expandido ? null : p.id)} aria-expanded={expandido} className="flex min-w-0 flex-1 items-center gap-3 text-left">
                     <ChevronDown className={`size-4 shrink-0 text-neutral-400 transition ${expandido ? 'rotate-180' : ''}`} />

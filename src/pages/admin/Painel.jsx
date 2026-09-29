@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Bell, BellOff, ExternalLink, Loader2, Menu } from 'lucide-react'
+import { ExternalLink, Loader2, Menu } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useConfig } from '../../context/ConfigContext'
 import { supabase } from '../../lib/supabase'
@@ -11,6 +11,7 @@ import { listarBairros } from '../../services/bairros'
 import { PainelContext } from './PainelContext'
 import Sidebar from './Sidebar'
 import { useAlertaPedidos } from './useAlertaPedidos'
+import SinoPedidos from './SinoPedidos'
 import { Aviso, Botao, Campo, classeInput, Modal } from './ui'
 
 const TITULOS = {
@@ -72,14 +73,15 @@ export default function Painel() {
   // Pedidos novos chegam sozinhos (tempo real), com som e notificação
   const setPedidos = useCallback((pedidos) => setDados((d) => ({ ...d, pedidos })), [])
   const irParaPedidos = useCallback(() => navegar('/admin/pedidos'), [navegar])
-  const { somLigado, alternarSom } = useAlertaPedidos({
+  const { somLigado, alternarSom, alertas, dispensar, dispensarTodos } = useAlertaPedidos({
     ativo: !!liberado,
     pedidosIniciais: carregando ? null : dados.pedidos,
     setPedidos,
-    avisar,
     logo: config.logo_url,
     aoClicarNotificacao: irParaPedidos,
   })
+  // Pedido que já foi confirmado/cancelado sai dos avisos do sino
+  const alertasAbertos = alertas.filter((a) => dados.pedidos.some((p) => p.id === a.id && p.status === 'novo'))
 
   const qtdNovos = dados.pedidos.filter((p) => p.status === 'novo').length
 
@@ -142,16 +144,14 @@ export default function Painel() {
               <p className="hidden text-[11px] font-semibold uppercase tracking-[0.14em] text-marca sm:block">{config.nome} · Painel</p>
               <h1 className="text-2xl font-semibold leading-tight lg:text-3xl">{titulo}</h1>
             </div>
-            <button
-              onClick={alternarSom}
-              title={somLigado ? 'Som de pedido novo ligado (clique para desligar)' : 'Som de pedido novo desligado (clique para ligar)'}
-              aria-pressed={somLigado}
-              className={`ml-auto grid size-10 place-items-center rounded-xl border transition ${
-                somLigado ? 'border-marca/40 bg-marca/10 text-marca' : 'border-neutral-200 bg-white text-neutral-400 hover:border-marca'
-              }`}
-            >
-              {somLigado ? <Bell className="size-4" /> : <BellOff className="size-4" />}
-            </button>
+            <SinoPedidos
+              alertas={alertasAbertos}
+              somLigado={somLigado}
+              onAlternarSom={alternarSom}
+              onDispensar={dispensar}
+              onDispensarTodos={dispensarTodos}
+              onVer={(pedido) => navegar(`/admin/pedidos?pedido=${pedido.id}`)}
+            />
             <a
               href="/"
               target="_blank"

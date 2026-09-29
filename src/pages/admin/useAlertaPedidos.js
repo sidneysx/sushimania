@@ -5,6 +5,7 @@ import { dinheiro } from './ui'
 
 const CHAVE_SOM = 'admin-som-pedidos'
 const INTERVALO_RESERVA = 30_000 // se o tempo real cair, confere a cada 30s
+const INTERVALO_REPETICAO = 2_000 // o som toca, espera 2s e toca de novo
 
 // ---------- Som ("ding-dong" gerado pelo navegador, sem arquivo de áudio) ----------
 
@@ -44,6 +45,12 @@ export function tocarDing() {
   })
 }
 
+// Alerta de pedido novo: toca, espera 2s e toca de novo
+function tocarAlerta() {
+  tocarDing()
+  setTimeout(tocarDing, INTERVALO_REPETICAO)
+}
+
 function lerSom() {
   try {
     return localStorage.getItem(CHAVE_SOM) !== 'false'
@@ -56,10 +63,12 @@ function lerSom() {
 
 /**
  * Mantém a lista de pedidos atualizada sem recarregar a página e avisa quando chega pedido novo:
- * som, aviso na tela e notificação do sistema (se a aba estiver em segundo plano).
+ * som (2x), alerta no sino do topo (fica até ser dispensado) e notificação do sistema
+ * (se a aba estiver em segundo plano).
  */
-export function useAlertaPedidos({ ativo, pedidosIniciais, setPedidos, avisar, logo, aoClicarNotificacao }) {
+export function useAlertaPedidos({ ativo, pedidosIniciais, setPedidos, logo, aoClicarNotificacao }) {
   const [somLigado, setSomLigado] = useState(lerSom)
+  const [alertas, setAlertas] = useState([]) // pedidos novos ainda não dispensados (mais novo primeiro)
   const conhecidos = useRef(null) // ids já vistos (null = ainda não carregou)
   const somRef = useRef(somLigado)
   useEffect(() => {
@@ -75,9 +84,7 @@ export function useAlertaPedidos({ ativo, pedidosIniciais, setPedidos, avisar, l
 
   const anunciar = useCallback(
     (pedido) => {
-      const texto = `Novo pedido #${pedido.codigo} · ${pedido.cliente_nome} · ${dinheiro.format(pedido.total)}`
-      avisar(`🛎️ ${texto}`)
-      if (somRef.current) tocarDing()
+      setAlertas((atuais) => [pedido, ...atuais.filter((a) => a.id !== pedido.id)])
       if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
         const n = new Notification(`Novo pedido #${pedido.codigo}`, {
           body: `${pedido.cliente_nome} · ${pedido.bairro} · ${dinheiro.format(pedido.total)}`,
@@ -91,7 +98,7 @@ export function useAlertaPedidos({ ativo, pedidosIniciais, setPedidos, avisar, l
         }
       }
     },
-    [avisar, logo, aoClicarNotificacao],
+    [logo, aoClicarNotificacao],
   )
 
   const conferir = useCallback(async () => {
@@ -101,8 +108,10 @@ export function useAlertaPedidos({ ativo, pedidosIniciais, setPedidos, avisar, l
       const novos = lista.filter((p) => !conhecidos.current.has(p.id))
       lista.forEach((p) => conhecidos.current.add(p.id))
       setPedidos(lista)
-      // do mais antigo para o mais novo
-      novos.filter((p) => p.status === 'novo').reverse().forEach(anunciar)
+      // do mais antigo para o mais novo; o som toca uma vez por lote, não por pedido
+      const novosAbertos = novos.filter((p) => p.status === 'novo')
+      novosAbertos.reverse().forEach(anunciar)
+      if (novosAbertos.length && somRef.current) tocarAlerta()
     } catch (e) {
       console.error('Não foi possível conferir os pedidos:', e.message)
     }
@@ -144,5 +153,8 @@ export function useAlertaPedidos({ ativo, pedidosIniciais, setPedidos, avisar, l
     if (novo) tocarDing() // amostra do som
   }, [somLigado])
 
-  return { somLigado, alternarSom }
+  const dispensar = useCallback((id) => setAlertas((atuais) => atuais.filter((a) => a.id !== id)), [])
+  const dispensarTodos = useCallback(() => setAlertas([]), [])
+
+  return { somLigado, alternarSom, alertas, dispensar, dispensarTodos }
 }

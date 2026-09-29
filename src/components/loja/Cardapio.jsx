@@ -53,29 +53,10 @@ export default function Cardapio() {
   return (
     <section id="cardapio" className="py-14 md:py-20">
       <div className="container mx-auto px-4">
-        <div className="mb-6 text-center">
+        <div className="mb-8 text-center">
           <span className="font-bold text-marca">Cardápio</span>
           <h2 className="text-3xl font-extrabold">Conheça o nosso cardápio</h2>
         </div>
-
-        {produtos.length > 0 && (
-          <label className="mx-auto mb-8 flex max-w-xl items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-gray-200 transition focus-within:shadow-md focus-within:ring-2 focus-within:ring-marca/30">
-            <FaMagnifyingGlass className="shrink-0 text-gray-400" />
-            <input
-              type="search"
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              placeholder="O que você quer comer hoje?"
-              aria-label="Pesquisar no cardápio"
-              className="w-full bg-transparent text-base outline-none placeholder:text-gray-400 [&::-webkit-search-cancel-button]:hidden"
-            />
-            {busca && (
-              <button type="button" onClick={() => setBusca('')} aria-label="Limpar pesquisa" className="shrink-0 rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700">
-                <FaXmark />
-              </button>
-            )}
-          </label>
-        )}
 
         {carregando && <p className="text-center text-gray-500">Carregando cardápio...</p>}
         {erro && <p className="text-center text-red-600">Não foi possível carregar o cardápio.</p>}
@@ -83,8 +64,27 @@ export default function Cardapio() {
       </div>
 
       {categorias.length > 0 && (
-        // Barra que gruda embaixo do header ao rolar
-        <div className="sticky top-18 z-30 border-y border-gray-100 bg-white/85 py-3 backdrop-blur-xl">
+        // Busca + categorias grudam embaixo do header ao rolar
+        <div className="sticky top-18 z-30 space-y-3 border-y border-gray-100 bg-white/85 py-3 backdrop-blur-xl">
+          <div className="container mx-auto px-4">
+            <label className="mx-auto flex max-w-xl items-center gap-3 rounded-2xl bg-white px-4 py-2.5 shadow-sm ring-1 ring-gray-200 transition focus-within:shadow-md focus-within:ring-2 focus-within:ring-marca/30">
+              <FaMagnifyingGlass className="shrink-0 text-gray-400" />
+              <input
+                type="search"
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                placeholder="O que você quer comer hoje?"
+                aria-label="Pesquisar no cardápio"
+                className="w-full bg-transparent text-base outline-none placeholder:text-gray-400 [&::-webkit-search-cancel-button]:hidden"
+              />
+              {busca && (
+                <button type="button" onClick={() => setBusca('')} aria-label="Limpar pesquisa" className="shrink-0 rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700">
+                  <FaXmark />
+                </button>
+              )}
+            </label>
+          </div>
+
           <div className="container mx-auto flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] md:justify-center [&::-webkit-scrollbar]:hidden">
             {categorias.map((c) => (
               <button
@@ -105,7 +105,7 @@ export default function Cardapio() {
         </div>
       )}
 
-      <div ref={inicioLista} className="container mx-auto scroll-mt-36 px-4 pt-6 md:pt-10">
+      <div ref={inicioLista} className="container mx-auto scroll-mt-52 px-4 pt-6 md:pt-10">
         {buscando && (
           <p className="mb-4 text-sm text-gray-500">
             {resultados.length
