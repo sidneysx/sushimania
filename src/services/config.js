@@ -11,6 +11,7 @@ export const CONFIG_PADRAO = {
   banner_texto: 'Aproveite nosso cardápio! Escolha o que desejar e receba em sua casa de forma rápida e segura.',
   whatsapp: import.meta.env.VITE_WHATSAPP ?? '',
   telefone: import.meta.env.VITE_TELEFONE ?? '',
+  endereco: '',
   instagram: '',
   facebook: '',
 }

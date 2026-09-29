@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FaBars, FaBagShopping } from 'react-icons/fa6'
+import { FaBars, FaBagShopping, FaLocationDot } from 'react-icons/fa6'
 import { useCarrinho } from '../../context/CarrinhoContext'
 import { useConfig } from '../../context/ConfigContext'
 
@@ -20,15 +20,37 @@ export function Logo({ className = 'h-12' }) {
 export default function Header() {
   const [menuAberto, setMenuAberto] = useState(false)
   const { totais, setAberto } = useCarrinho()
+  const { config } = useConfig()
 
   return (
     <header className="sticky top-0 z-40 bg-white/90 shadow-sm backdrop-blur">
-      <nav className="container mx-auto flex min-h-18 flex-wrap items-center justify-between px-4 py-3">
-        <a href="#">
-          <Logo />
-        </a>
+      <nav className="container mx-auto flex min-h-18 flex-wrap items-center justify-between gap-3 px-4 py-3">
+        {/* Logo + nome + endereço */}
+        <div className="flex min-w-0 flex-1 items-center gap-3 md:flex-none">
+          {config.logo_url && (
+            <a href="#" className="shrink-0">
+              <img src={config.logo_url} alt="" className="h-12 w-auto object-contain" />
+            </a>
+          )}
+          <div className="min-w-0 leading-tight">
+            <a href="#" className="block truncate text-lg font-extrabold text-gray-900">
+              {config.nome}
+            </a>
+            {config.endereco && (
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(config.endereco)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1 text-xs text-gray-500 hover:text-marca"
+              >
+                <FaLocationDot className="shrink-0 text-marca" />
+                <span className="truncate">{config.endereco}</span>
+              </a>
+            )}
+          </div>
+        </div>
 
-        <button className="text-xl md:hidden" onClick={() => setMenuAberto(!menuAberto)} aria-label="Menu">
+        <button className="shrink-0 text-xl md:hidden" onClick={() => setMenuAberto(!menuAberto)} aria-label="Menu">
           <FaBars />
         </button>
 

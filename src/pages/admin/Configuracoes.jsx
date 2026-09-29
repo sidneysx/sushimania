@@ -28,6 +28,7 @@ function Formulario({ config }) {
     banner_texto: config.banner_texto ?? '',
     whatsapp: config.whatsapp ?? '',
     telefone: config.telefone ?? '',
+    endereco: config.endereco ?? '',
     instagram: config.instagram ?? '',
     facebook: config.facebook ?? '',
   })
@@ -72,6 +73,7 @@ function Formulario({ config }) {
         banner_texto: form.banner_texto.trim() || null,
         whatsapp: form.whatsapp.replace(/\D/g, '') || null,
         telefone: form.telefone.trim() || null,
+        endereco: form.endereco.trim() || null,
         instagram: form.instagram.trim() || null,
         facebook: form.facebook.trim() || null,
       })
@@ -185,13 +187,16 @@ function Formulario({ config }) {
       </Cartao>
 
       <Cartao className="space-y-5">
-        <Titulo icone={Phone} titulo="Contato e redes" descricao="O WhatsApp recebe os pedidos do site." />
+        <Titulo icone={Phone} titulo="Contato e redes" descricao="O WhatsApp recebe os pedidos do site; o endereço aparece no topo." />
         <div className="grid gap-5 md:grid-cols-2">
           <Campo rotulo="WhatsApp dos pedidos" dica="Com DDI e DDD. Ex.: 5599981234567">
             <input value={form.whatsapp} onChange={alterar('whatsapp')} inputMode="numeric" className={classeInput()} />
           </Campo>
           <Campo rotulo="Telefone exibido no site" dica="Ex.: (99) 98123-4567">
             <input value={form.telefone} onChange={alterar('telefone')} className={classeInput()} />
+          </Campo>
+          <Campo rotulo="Endereço da loja" dica="Aparece no topo do site, ao lado da logo" className="md:col-span-2">
+            <input value={form.endereco} onChange={alterar('endereco')} maxLength={150} placeholder="Ex.: Rua Ceará, Bacuri, 1590" className={classeInput()} />
           </Campo>
           <Campo rotulo="Instagram" dica="Link completo do perfil">
             <input value={form.instagram} onChange={alterar('instagram')} placeholder="https://instagram.com/..." className={classeInput()} />
