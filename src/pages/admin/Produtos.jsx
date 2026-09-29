@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Eye, ImagePlus, Package, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { salvarProduto, excluirProduto, enviarImagem, removerImagem } from '../../services/produtos'
@@ -15,12 +15,12 @@ export default function Produtos() {
   const { produtos, categorias, recarregar, avisar } = usePainel()
   const [params, setParams] = useSearchParams()
   const [busca, setBusca] = useState('')
-  const [categoria, setCategoria] = useState('')
   const [editando, setEditando] = useState(null)
   const [apagando, setApagando] = useState(null)
   const [confirmando, setConfirmando] = useState(false)
 
   const filtro = params.get('filtro')
+  const categoria = params.get('categoria') ?? ''
   const criando = params.has('novo')
 
   const mudarParams = (mudanca) => {
@@ -29,13 +29,22 @@ export default function Produtos() {
     setParams(novos)
   }
 
-  const lista = useMemo(() => {
-    const termo = busca.trim().toLowerCase()
-    const teste = FILTROS.find((f) => f.id === filtro)?.teste ?? (() => true)
-    return produtos.filter(
-      (p) => teste(p) && (!categoria || String(p.categoria_id) === categoria) && (!termo || p.nome.toLowerCase().includes(termo)),
-    )
-  }, [produtos, filtro, categoria, busca])
+  const termo = busca.trim().toLowerCase()
+  const testeFiltro = FILTROS.find((f) => f.id === filtro)?.teste ?? (() => true)
+  const daBusca = (p) => !termo || p.nome.toLowerCase().includes(termo)
+  const daCategoria = (p) => !categoria || String(p.categoria_id) === categoria
+
+  const lista = produtos.filter((p) => testeFiltro(p) && daCategoria(p) && daBusca(p))
+
+  // Sem categoria escolhida: mostra a lista separada por categoria
+  const grupos = (() => {
+    if (categoria) return [{ id: categoria, titulo: null, itens: lista }]
+    const porCategoria = categorias
+      .map((c) => ({ id: String(c.id), titulo: `${c.icone ?? ''} ${c.nome}`.trim(), itens: lista.filter((p) => p.categoria_id === c.id) }))
+      .filter((g) => g.itens.length)
+    const semCategoria = lista.filter((p) => !categorias.some((c) => c.id === p.categoria_id))
+    return semCategoria.length ? [...porCategoria, { id: 'sem', titulo: 'Sem categoria', itens: semCategoria }] : porCategoria
+  })()
 
   const alternarAtivo = async (produto) => {
     try {
@@ -70,38 +79,42 @@ export default function Produtos() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center gap-3">
-        <Busca valor={busca} onChange={setBusca} placeholder="Buscar produto" />
-        <select value={categoria} onChange={(e) => setCategoria(e.target.value)} className={`${classeInput()} w-auto`}>
-          <option value="">Todas as categorias</option>
-          {categorias.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.icone} {c.nome}
-            </option>
-          ))}
-        </select>
-        <Botao variante="marca" className="ml-auto" onClick={novo}>
-          <Plus className="size-4" /> Novo produto
-        </Botao>
-      </div>
-
-      <div className="flex gap-2">
-        {FILTROS.map((f) => {
-          const ativo = f.id === filtro
-          const qtd = f.teste ? produtos.filter(f.teste).length : produtos.length
-          return (
-            <button
+      <div className="space-y-3">
+        {/* Busca + filtros de situação + novo, numa linha só */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Busca valor={busca} onChange={setBusca} placeholder="Buscar produto" />
+          {FILTROS.map((f) => (
+            <Chip
               key={f.rotulo}
+              ativo={f.id === filtro}
               onClick={() => mudarParams({ filtro: f.id })}
-              className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition ${
-                ativo ? 'bg-neutral-950 text-white' : 'bg-white text-neutral-600 ring-1 ring-neutral-200 hover:ring-marca/50'
-              }`}
+              qtd={produtos.filter((p) => (f.teste ?? (() => true))(p) && daCategoria(p)).length}
             >
               {f.rotulo}
-              <span className={`text-xs ${ativo ? 'text-marca' : 'text-neutral-400'}`}>{qtd}</span>
-            </button>
-          )
-        })}
+            </Chip>
+          ))}
+          <Botao variante="marca" className="ml-auto" onClick={novo}>
+            <Plus className="size-4" /> Novo produto
+          </Botao>
+        </div>
+
+        {categorias.length > 0 && (
+          <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0">
+            <Chip ativo={!categoria} onClick={() => mudarParams({ categoria: null })} qtd={produtos.filter(testeFiltro).length}>
+              Todas as categorias
+            </Chip>
+            {categorias.map((c) => (
+              <Chip
+                key={c.id}
+                ativo={categoria === String(c.id)}
+                onClick={() => mudarParams({ categoria: String(c.id) })}
+                qtd={produtos.filter((p) => p.categoria_id === c.id && testeFiltro(p)).length}
+              >
+                {c.icone && <span>{c.icone}</span>} {c.nome}
+              </Chip>
+            ))}
+          </div>
+        )}
       </div>
 
       {produtos.length === 0 ? (
@@ -113,38 +126,46 @@ export default function Produtos() {
       ) : lista.length === 0 ? (
         <Vazio icone={Search} titulo="Nenhum produto encontrado" texto="Mude o filtro ou a busca." />
       ) : (
-        <ul className="divide-y divide-neutral-100 overflow-hidden rounded-2xl border border-neutral-200/80 bg-white shadow-sm">
-          {lista.map((p) => (
-            <li key={p.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 p-3 sm:px-4">
-              <Miniatura src={p.imagem_url} alt={p.nome} className="size-14" />
-              <div className="min-w-0 flex-1">
-                <p className={`truncate font-medium ${p.ativo ? '' : 'text-neutral-400 line-through'}`}>{p.nome}</p>
-                <p className="truncate text-xs text-neutral-500">
-                  {p.categoria?.nome ?? 'Sem categoria'}
-                  {p.descricao ? ` · ${p.descricao}` : ''}
-                </p>
-              </div>
-              <p className="w-24 text-right font-semibold">{dinheiro.format(p.preco)}</p>
-              <button
-                role="switch"
-                aria-checked={p.ativo}
-                onClick={() => alternarAtivo(p)}
-                title={p.ativo ? 'Visível no site (clique para ocultar)' : 'Oculto (clique para mostrar)'}
-                className={`relative h-6 w-11 shrink-0 rounded-full transition ${p.ativo ? 'bg-marca' : 'bg-neutral-300'}`}
-              >
-                <span className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-all ${p.ativo ? 'left-[22px]' : 'left-0.5'}`} />
-              </button>
-              <div className="flex">
-                <button onClick={() => setEditando(p)} aria-label="Editar" className="grid size-9 place-items-center rounded-lg text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900">
-                  <Pencil className="size-4" />
-                </button>
-                <button onClick={() => setApagando(p)} aria-label="Apagar" className="grid size-9 place-items-center rounded-lg text-neutral-500 hover:bg-rose-50 hover:text-rose-600">
-                  <Trash2 className="size-4" />
-                </button>
-              </div>
-            </li>
+        <div className="space-y-6">
+          {grupos.map((g) => (
+            <section key={g.id}>
+              {g.titulo && (
+                <h2 className="mb-2 flex items-center gap-2 px-1 text-sm font-semibold text-neutral-700">
+                  {g.titulo} <span className="text-xs font-normal text-neutral-400">{g.itens.length}</span>
+                </h2>
+              )}
+              <ul className="divide-y divide-neutral-100 overflow-hidden rounded-2xl border border-neutral-200/80 bg-white shadow-sm">
+                {g.itens.map((p) => (
+                  <li key={p.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 p-3 sm:px-4">
+                    <Miniatura src={p.imagem_url} alt={p.nome} className="size-14" />
+                    <div className="min-w-0 flex-1">
+                      <p className={`truncate font-medium ${p.ativo ? '' : 'text-neutral-400 line-through'}`}>{p.nome}</p>
+                      {p.descricao && <p className="truncate text-xs text-neutral-500">{p.descricao}</p>}
+                    </div>
+                    <p className="w-24 text-right font-semibold">{dinheiro.format(p.preco)}</p>
+                    <button
+                      role="switch"
+                      aria-checked={p.ativo}
+                      onClick={() => alternarAtivo(p)}
+                      title={p.ativo ? 'Visível no site (clique para ocultar)' : 'Oculto (clique para mostrar)'}
+                      className={`relative h-6 w-11 shrink-0 rounded-full transition ${p.ativo ? 'bg-marca' : 'bg-neutral-300'}`}
+                    >
+                      <span className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-all ${p.ativo ? 'left-[22px]' : 'left-0.5'}`} />
+                    </button>
+                    <div className="flex">
+                      <button onClick={() => setEditando(p)} aria-label="Editar" className="grid size-9 place-items-center rounded-lg text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900">
+                        <Pencil className="size-4" />
+                      </button>
+                      <button onClick={() => setApagando(p)} aria-label="Apagar" className="grid size-9 place-items-center rounded-lg text-neutral-500 hover:bg-rose-50 hover:text-rose-600">
+                        <Trash2 className="size-4" />
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
           ))}
-        </ul>
+        </div>
       )}
 
       <FormProduto
@@ -168,6 +189,20 @@ export default function Produtos() {
         onCancelar={() => setApagando(null)}
       />
     </div>
+  )
+}
+
+function Chip({ ativo, onClick, qtd, children }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition ${
+        ativo ? 'bg-neutral-950 text-white' : 'bg-white text-neutral-600 ring-1 ring-neutral-200 hover:ring-marca/50'
+      }`}
+    >
+      {children}
+      <span className={`text-xs ${ativo ? 'text-marca' : 'text-neutral-400'}`}>{qtd}</span>
+    </button>
   )
 }
 

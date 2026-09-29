@@ -8,12 +8,12 @@ import { linkWhatsapp } from '../../lib/config'
 import { listarBairros } from '../../services/bairros'
 import { gerarCodigo, registrarPedido } from '../../services/pedidos'
 import EtapaItens from './EtapaItens'
-import EtapaEndereco, { DADOS_DO_CEP, PAGAMENTOS, bairroDoPedido, validarEndereco } from './EtapaEndereco'
+import EtapaEndereco, { DADOS_DO_BAIRRO, DADOS_DO_CEP, PAGAMENTOS, bairroDoPedido, validarEndereco } from './EtapaEndereco'
 import EtapaResumo from './EtapaResumo'
 
 const TITULOS = { 1: 'Seu carrinho:', 2: 'Seus dados e entrega:', 3: 'Resumo do pedido:' }
 
-// taxa: null enquanto o CEP não foi consultado ou quando o bairro não é atendido (a combinar)
+// taxa: null enquanto o bairro não foi escolhido ou quando ele não é atendido (a combinar)
 const ENDERECO_VAZIO = {
   nome: '',
   pagamento: PAGAMENTOS[0],
@@ -22,6 +22,7 @@ const ENDERECO_VAZIO = {
   numero: '',
   complemento: '',
   ...DADOS_DO_CEP,
+  ...DADOS_DO_BAIRRO,
 }
 
 const enderecoCompleto = (e) =>
@@ -43,7 +44,7 @@ function montarMensagem(codigo, itens, e, subtotal) {
     `*Pagamento:* ${e.pagamento}${e.pagamento === 'Dinheiro' && e.troco.trim() ? ` (troco para ${e.troco.trim()})` : ''}`,
   ]
   if (e.taxa === null) {
-    linhas.push(`*Subtotal: ${formatarPreco(subtotal)}*`, '*Taxa de entrega: a combinar* (bairro fora da área cadastrada)')
+    linhas.push(`*Subtotal: ${formatarPreco(subtotal)}*`, '*Taxa de entrega: a combinar*')
   } else {
     linhas.push(`Taxa de entrega: ${formatarPreco(e.taxa)}`, `*Total (com entrega): ${formatarPreco(subtotal + e.taxa)}*`)
   }
@@ -80,7 +81,7 @@ export default function ModalCarrinho() {
   }
 
   const avancarParaResumo = () => {
-    const erro = validarEndereco(endereco)
+    const erro = validarEndereco(endereco, bairros)
     if (erro) return toast(erro)
     setEtapa(3)
   }
@@ -103,6 +104,7 @@ export default function ModalCarrinho() {
       troco: endereco.pagamento === 'Dinheiro' ? endereco.troco.trim() || null : null,
       endereco: enderecoCompleto(endereco),
       bairro: bairroDoPedido(endereco),
+      cep: endereco.cep,
       itens: itens.map(({ id, nome, qntd, preco, imagem_url }) => ({ id, nome, qtd: qntd, preco: Number(preco), imagem_url })),
       // subtotal, taxa e total são recalculados pelo banco (gatilho validar_pedido)
       subtotal: totais.subtotal,
@@ -115,7 +117,7 @@ export default function ModalCarrinho() {
     fechar()
   }
   const textoEntrega =
-    endereco.taxa !== null ? `+ ${formatarPreco(endereco.taxa)}` : endereco.situacao ? 'a combinar' : 'informe o CEP'
+    endereco.taxa !== null ? `+ ${formatarPreco(endereco.taxa)}` : endereco.situacao ? 'a combinar' : 'informe o bairro'
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-[#fffdf7]">

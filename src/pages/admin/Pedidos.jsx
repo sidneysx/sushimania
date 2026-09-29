@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Bike, ChevronDown, CreditCard, MapPin, Search, ShoppingBag, Trash2 } from 'lucide-react'
+import { AlertTriangle, Bike, ChevronDown, CreditCard, MapPin, Search, ShoppingBag, Trash2 } from 'lucide-react'
 import { alterarStatusPedido, excluirPedido } from '../../services/pedidos'
 import { usePainel } from './PainelContext'
 import { Busca, Confirmar, dinheiro, formatarData, Miniatura, STATUS, StatusPedido, Vazio } from './ui'
@@ -105,6 +105,11 @@ export default function Pedidos() {
                       <p className="text-xs text-neutral-500">
                         {formatarData(p.criado_em)} · {qtdItens} {qtdItens === 1 ? 'item' : 'itens'} · {p.bairro}
                       </p>
+                      {p.aviso && (
+                        <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 ring-1 ring-amber-200">
+                          <AlertTriangle className="size-3" /> {p.aviso}
+                        </p>
+                      )}
                     </div>
                   </button>
                   <p className="font-semibold">
@@ -168,6 +173,7 @@ export default function Pedidos() {
                             <span>
                               <b>{p.bairro}</b>
                               <span className="block text-neutral-600">{p.endereco}</span>
+                              {p.cep && <span className="block text-xs text-neutral-500">CEP informado: {p.cep}</span>}
                             </span>
                           </p>
                           <p className="flex gap-2">

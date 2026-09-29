@@ -13,6 +13,10 @@ drop policy if exists "Publico le bairros" on public.bairros;
 create policy "Publico le bairros" on public.bairros
   for select to anon, authenticated using (true);
 
+-- CEP digitado pelo cliente e um aviso para o painel ("conferir endereço")
+alter table public.pedidos add column if not exists cep text check (char_length(cep) <= 9);
+alter table public.pedidos add column if not exists aviso text;
+
 -- =========================================================
 -- 2. Ao gravar um pedido, o banco ignora os valores enviados pelo navegador
 --    e recalcula tudo com os preços e taxas cadastrados:
@@ -35,6 +39,8 @@ declare
   novos_itens jsonb := '[]'::jsonb;
   soma numeric(10,2) := 0;
   taxa_bairro numeric(10,2);
+  bai record;
+  cep_num text := regexp_replace(coalesce(new.cep, ''), '\D', '', 'g');
 begin
   for item in select * from jsonb_array_elements(new.itens) loop
     qtd := (item ->> 'qtd')::int;
@@ -60,9 +66,23 @@ begin
     );
   end loop;
 
-  select b.taxa into taxa_bairro
+  select b.taxa, b.ativo, b.cep_inicial, b.cep_final into bai
   from public.bairros b
-  where b.nome = new.bairro and b.ativo and b.taxa > 0;
+  where b.nome = new.bairro;
+
+  if found and bai.ativo and bai.taxa > 0 then
+    taxa_bairro := bai.taxa;
+  end if;
+
+  -- Aviso para o painel (o cliente não vê): situações em que vale conferir o endereço
+  new.aviso := case
+    when not found then 'Bairro fora da lista'
+    when bai.cep_inicial is null then 'Bairro sem CEP próprio: conferir endereço'
+    when cep_num !~ '^\d{8}$' then 'Pedido sem CEP'
+    when cep_num not between replace(bai.cep_inicial, '-', '') and replace(bai.cep_final, '-', '')
+      then 'CEP fora da faixa do bairro: conferir endereço'
+    else null
+  end;
 
   new.itens := novos_itens;
   new.subtotal := soma;
