@@ -1,8 +1,7 @@
-import { Suspense, lazy, useState } from 'react'
+import { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import { FaCircleCheck, FaCircleInfo, FaLocationCrosshairs, FaTriangleExclamation } from 'react-icons/fa6'
 import { useToast } from '../../context/ToastContext'
-import { atende, bairroDoCep, buscarBairros, cepConfere, normalizarBairro } from '../../services/bairros'
-import { formatarPreco } from '../../lib/formatar'
+import { atende, buscarBairros, cepConfere } from '../../services/bairros'
 
 // Leaflet só é baixado quando o mapa aparece
 const MapaLocalizacao = lazy(() => import('./MapaLocalizacao'))
@@ -12,14 +11,13 @@ export const PAGAMENTOS = ['Pix', 'Dinheiro', 'Cartão de crédito', 'Cartão de
 // Bairro que não está na lista (o cliente digitou): taxa a combinar
 const BAIRRO_NOVO = 'novo'
 
-// Dados que vêm do CEP: apagados quando o CEP muda
+// Dados que vêm do CEP: apagados quando o CEP muda. O CEP não preenche bairro nem rua,
+// só confere se combina com o bairro escolhido e informa a cidade.
 export const DADOS_DO_CEP = {
   cepConsultado: '',
   viaBairro: '', // bairro que o ViaCEP devolveu
   cidade: '',
   uf: '',
-  endereco: '',
-  logradouroDoCep: false,
 }
 
 // Bairro escolhido pelo cliente
@@ -69,6 +67,23 @@ export default function EtapaEndereco({ endereco, setEndereco, bairros }) {
   const [listaAberta, setListaAberta] = useState(false)
   const [localizando, setLocalizando] = useState(false)
 
+  // CEP e bairro de lugares diferentes: vale o que o cliente mexeu por último e o outro é apagado.
+  // Escolheu o bairro com um CEP de outro lugar -> apaga o CEP; digitou um CEP de outro bairro -> apaga o bairro.
+  const anterior = useRef({ cep: endereco.cepConsultado, bairro: endereco.bairroId })
+  useEffect(() => {
+    const antes = anterior.current
+    anterior.current = { cep: endereco.cepConsultado, bairro: endereco.bairroId }
+    if (!cepDivergente(endereco, bairros)) return
+
+    if (endereco.bairroId !== antes.bairro) {
+      setEndereco((atual) => ({ ...atual, ...DADOS_DO_CEP, cep: '' }))
+      toast(`O CEP digitado não é do bairro ${endereco.bairro}. Apagamos o CEP: digite o certo ou deixe em branco.`)
+    } else if (endereco.cepConsultado !== antes.cep) {
+      setEndereco((atual) => ({ ...atual, ...DADOS_DO_BAIRRO }))
+      toast(`Esse CEP não é do bairro ${endereco.bairro}${endereco.viaBairro ? ` (é de ${endereco.viaBairro})` : ''}. Escolha o bairro de novo.`)
+    }
+  }, [endereco.cepConsultado, endereco.bairroId, bairros])
+
   const alterar = (campo) => (e) => setEndereco({ ...endereco, [campo]: e.target.value })
 
   const buscarCep = async (cep) => {
@@ -81,18 +96,7 @@ export default function EtapaEndereco({ endereco, setEndereco, bairros }) {
       setEndereco((atual) => {
         // o cliente trocou o CEP enquanto consultava: ignora a resposta antiga
         if (atual.cep.replace(/\D/g, '') !== cep) return atual
-        // ainda não escolheu o bairro: já sugere o bairro do CEP
-        const sugestao = !atual.bairroId && bairroDoCep(bairros, cep, dados.bairro)
-        return {
-          ...atual,
-          cepConsultado: cep,
-          viaBairro: dados.bairro ?? '',
-          cidade: dados.localidade,
-          uf: dados.uf,
-          endereco: dados.logradouro || atual.endereco,
-          logradouroDoCep: !!dados.logradouro,
-          ...(sugestao ? dadosDoBairro(sugestao) : {}),
-        }
+        return { ...atual, cepConsultado: cep, viaBairro: dados.bairro ?? '', cidade: dados.localidade, uf: dados.uf }
       })
     } catch {
       toast('Não foi possível consultar o CEP. Tente novamente.')
@@ -105,12 +109,13 @@ export default function EtapaEndereco({ endereco, setEndereco, bairros }) {
     const cep = mascaraCep(e.target.value)
     const digitos = cep.replace(/\D/g, '')
     const mudou = digitos !== endereco.cepConsultado
-    setEndereco(mudou ? { ...endereco, ...DADOS_DO_CEP, endereco: endereco.endereco, cep } : { ...endereco, cep })
+    setEndereco(mudou ? { ...endereco, ...DADOS_DO_CEP, cep } : { ...endereco, cep })
     if (digitos.length === 8 && mudou) buscarCep(digitos)
   }
 
-  // Ponto no mapa -> rua e bairro, pelo OpenStreetMap (gratuito).
-  // Usado pelo GPS e quando o cliente arrasta o pino no mapa.
+  // Ponto no mapa -> rua, pelo OpenStreetMap (gratuito). Usado pelo GPS e quando o cliente
+  // arrasta o pino. O bairro não vem daqui: os limites de bairro do OpenStreetMap erram
+  // (ex.: Parque Santa Lúcia saía como Residencial Teotônio), então o cliente escolhe na lista.
   const enderecoDoPonto = async (lat, lng) => {
     const localizacao = `${lat.toFixed(6)},${lng.toFixed(6)}`
     setLocalizando(true)
@@ -119,27 +124,19 @@ export default function EtapaEndereco({ endereco, setEndereco, bairros }) {
         `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&accept-language=pt-BR&lat=${lat}&lon=${lng}`,
       )
       const { address: a = {} } = await resposta.json()
-      const nomeBairro = a.suburb || a.neighbourhood || a.quarter || a.city_district || ''
-      const cadastrado = nomeBairro && bairros.find((b) => normalizarBairro(b.nome) === normalizarBairro(nomeBairro))
-
       setEndereco((atual) => ({
         ...atual,
-        // a localização substitui o CEP digitado antes (evita CEP e bairro de lugares diferentes)
-        ...DADOS_DO_CEP,
-        cep: '',
         localizacao,
         endereco: a.road || atual.endereco,
-        numero: a.house_number || atual.numero,
-        cidade: a.city || a.town || '',
-        uf: (a['ISO3166-2-lvl4'] ?? '').replace('BR-', ''),
-        ...(cadastrado ? dadosDoBairro(cadastrado) : { ...DADOS_DO_BAIRRO, bairroBusca: nomeBairro }),
+        // cidade do CEP tem prioridade; sem CEP, usa a do mapa
+        cidade: atual.cidade || a.city || a.town || '',
+        uf: atual.uf || (a['ISO3166-2-lvl4'] ?? '').replace('BR-', ''),
       }))
-      toast(cadastrado ? 'Localização encontrada! Confira o endereço.' : 'Localização encontrada. Escolha o seu bairro na lista.', 'sucesso')
-      if (!cadastrado) setListaAberta(true)
+      toast(a.road ? 'Localização encontrada! Confira a rua e escolha o seu bairro.' : 'Localização encontrada. Preencha a rua e o bairro.', 'sucesso')
     } catch {
       // sem o endereço, a localização ainda vai no pedido para o entregador
       setEndereco((atual) => ({ ...atual, localizacao }))
-      toast('Pegamos sua localização, mas não o endereço. Preencha o bairro e a rua.')
+      toast('Pegamos sua localização, mas não o endereço. Preencha a rua e o bairro.')
     } finally {
       setLocalizando(false)
     }
@@ -162,12 +159,10 @@ export default function EtapaEndereco({ endereco, setEndereco, bairros }) {
     )
   }
 
-  // A localização às vezes vem errada (ex.: o OpenStreetMap põe o ponto no bairro vizinho):
-  // apaga o ponto e o que ele preencheu, para o cliente digitar o endereço.
+  // Tira o ponto do pedido e a rua que ele preencheu
   const limparLocalizacao = () => {
-    setEndereco({ ...endereco, ...DADOS_DO_CEP, ...DADOS_DO_BAIRRO, cep: '', localizacao: '', numero: '' })
-    setListaAberta(false)
-    document.getElementById('campo-bairro')?.focus()
+    setEndereco({ ...endereco, localizacao: '', endereco: '' })
+    document.getElementById('campo-endereco')?.focus()
   }
 
   const digitarBairro = (e) => {
@@ -270,10 +265,9 @@ export default function EtapaEndereco({ endereco, setEndereco, bairros }) {
         </div>
       )}
 
-      {/* Rua sempre editável: há CEPs de rodovia/área (ex.: 65916-973) que cobrem ruas próximas sem CEP próprio */}
       <Campo label="Rua / Avenida:" className="md:col-span-3">
         <input id="campo-endereco" className={input} value={endereco.endereco} onChange={alterar('endereco')} placeholder="Nome da sua rua" autoComplete="address-line1" />
-        {endereco.logradouroDoCep && <span className="text-xs font-normal text-gray-500">Preenchido pelo CEP. Se sua rua for outra, pode corrigir.</span>}
+        {endereco.localizacao && <span className="text-xs font-normal text-gray-500">Preenchida pela localização. Se sua rua for outra, pode corrigir.</span>}
       </Campo>
       <Campo label="Número:">
         <input id="campo-numero" className={input} value={endereco.numero} onChange={alterar('numero')} inputMode="numeric" />
@@ -310,12 +304,14 @@ function Situacao({ endereco, divergente }) {
     )
   }
 
+  // sem o valor da taxa aqui: ele só aparece na revisão (etapa 3), para o cliente
+  // não trocar para um bairro mais barato
   if (endereco.situacao === 'atendido') {
     return (
       <div className="flex items-center gap-3 rounded-xl bg-green-50 p-3 text-sm text-green-900 ring-1 ring-green-200">
         <FaCircleCheck className="shrink-0 text-lg text-green-600" />
         <p>
-          Entrega em <b>{endereco.bairro}</b>: <b>{formatarPreco(endereco.taxa)}</b>
+          Entregamos em <b>{endereco.bairro}</b>.
         </p>
       </div>
     )

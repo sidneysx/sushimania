@@ -1,10 +1,13 @@
-import { createContext, useContext, useMemo, useState } from 'react'
+import { createContext, useContext, useMemo } from 'react'
+import { usePersistente } from '../lib/usePersistente'
 
 const CarrinhoContext = createContext(null)
 
 export function CarrinhoProvider({ children }) {
-  const [itens, setItens] = useState([])
-  const [aberto, setAberto] = useState(false)
+  // itens guardados no navegador: atualizar a página não perde o carrinho (só limpa ao enviar o pedido)
+  const [itens, setItens] = usePersistente('carrinho-itens', [])
+  // aberto só na aba atual: atualizar a página no meio do pedido volta para o carrinho aberto
+  const [aberto, setAberto] = usePersistente('carrinho-aberto', false, 'sessao')
 
   const adicionar = (produto, qntd) => {
     setItens((atuais) => {

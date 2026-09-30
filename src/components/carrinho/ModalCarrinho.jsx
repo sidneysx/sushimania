@@ -4,6 +4,7 @@ import { useCarrinho } from '../../context/CarrinhoContext'
 import { useToast } from '../../context/ToastContext'
 import { useConfig } from '../../context/ConfigContext'
 import { formatarPreco } from '../../lib/formatar'
+import { usePersistente } from '../../lib/usePersistente'
 import { linkWhatsapp } from '../../lib/config'
 import { listarBairros } from '../../services/bairros'
 import { gerarCodigo, registrarPedido } from '../../services/pedidos'
@@ -19,6 +20,7 @@ const ENDERECO_VAZIO = {
   pagamento: PAGAMENTOS[0],
   troco: '',
   cep: '',
+  endereco: '', // rua
   numero: '',
   complemento: '',
   localizacao: '', // "lat,lng" do botão "Usar minha localização"
@@ -68,8 +70,11 @@ export default function ModalCarrinho() {
   const { itens, totais, aberto, setAberto, limpar } = useCarrinho()
   const { config } = useConfig()
   const toast = useToast()
-  const [etapa, setEtapa] = useState(1)
-  const [endereco, setEndereco] = useState(ENDERECO_VAZIO)
+  // etapa e dados de entrega sobrevivem a atualizar a página; só são limpos ao enviar o pedido
+  const [etapa, setEtapa] = usePersistente('carrinho-etapa', 1, 'sessao')
+  const [enderecoSalvo, setEndereco] = usePersistente('carrinho-endereco', ENDERECO_VAZIO)
+  // campos novos que ainda não existiam no que foi salvo ficam com o valor padrão
+  const endereco = { ...ENDERECO_VAZIO, ...enderecoSalvo }
   const [bairros, setBairros] = useState([])
 
   useEffect(() => {
@@ -83,20 +88,14 @@ export default function ModalCarrinho() {
 
   if (!aberto) return null
 
-  // Fechar (para escolher mais itens ou depois de enviar): volta à etapa 1 e limpa os
-  // dados da etapa 2. Os itens do carrinho continuam (só são limpos ao enviar o pedido).
+  // Fechar (para escolher mais itens): volta à etapa 1. Itens e dados de entrega continuam
+  // guardados; só são limpos ao enviar o pedido.
   const fechar = () => {
     setAberto(false)
     setEtapa(1)
-    setEndereco(ENDERECO_VAZIO)
   }
 
-  const voltar = () => {
-    const anterior = etapaAtual - 1
-    setEtapa(anterior)
-    // da etapa 2 de volta ao carrinho: limpa os dados de entrega; da 3 para a 2 mantém (é só revisão)
-    if (anterior === 1) setEndereco(ENDERECO_VAZIO)
-  }
+  const voltar = () => setEtapa(etapaAtual - 1)
 
   const avancarParaEndereco = () => {
     if (itens.length === 0) return toast('Seu carrinho está vazio.')
@@ -144,6 +143,7 @@ export default function ModalCarrinho() {
 
     toast(`Pedido #${codigo} enviado! Finalize a conversa no WhatsApp.`, 'sucesso', 6000)
     limpar()
+    setEndereco(ENDERECO_VAZIO)
     fechar()
   }
   const textoEntrega =

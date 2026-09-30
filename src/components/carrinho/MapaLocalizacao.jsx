@@ -16,7 +16,9 @@ export default function MapaLocalizacao({ lat, lng, aoMover }) {
   const mapaRef = useRef(null)
   const marcadorRef = useRef(null)
   const aoMoverRef = useRef(aoMover)
-  aoMoverRef.current = aoMover
+  useEffect(() => {
+    aoMoverRef.current = aoMover
+  })
 
   useEffect(() => {
     const mapa = L.map(divRef.current, { scrollWheelZoom: false }).setView([lat, lng], 17)
