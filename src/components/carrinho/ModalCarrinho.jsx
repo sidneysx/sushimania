@@ -105,7 +105,13 @@ export default function ModalCarrinho() {
 
   const avancarParaResumo = () => {
     const erro = validarEndereco(endereco, bairros)
-    if (erro) return toast(erro)
+    if (erro) {
+      toast(erro.mensagem)
+      const campo = document.getElementById(`campo-${erro.campo}`)
+      campo?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      campo?.focus({ preventScroll: true })
+      return
+    }
     setEtapa(3)
   }
 
@@ -178,17 +184,20 @@ export default function ModalCarrinho() {
 
       <div className="border-t border-gray-100 bg-white">
         <div className="container mx-auto flex flex-col items-end gap-4 px-4 py-4">
-          <div className="text-right">
-            <p>
-              Subtotal: <span className="font-semibold">{formatarPreco(totais.subtotal)}</span>
-            </p>
-            <p className="text-gray-500">
-              <FaMotorcycle className="inline" /> Entrega: {textoEntrega}
-            </p>
-            <p className="text-lg">
-              <b>Total: <span className="text-marca">{formatarPreco(total)}</span></b>
-            </p>
-          </div>
+          {/* na etapa 2 o cliente ainda está preenchendo a entrega: valores só na 1 e na revisão (3) */}
+          {etapaAtual !== 2 && (
+            <div className="text-right">
+              <p>
+                Subtotal: <span className="font-semibold">{formatarPreco(totais.subtotal)}</span>
+              </p>
+              <p className="text-gray-500">
+                <FaMotorcycle className="inline" /> Entrega: {textoEntrega}
+              </p>
+              <p className="text-lg">
+                <b>Total: <span className="text-marca">{formatarPreco(total)}</span></b>
+              </p>
+            </div>
+          )}
 
           <div className="flex gap-3">
             {etapaAtual > 1 && (

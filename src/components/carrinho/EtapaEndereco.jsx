@@ -155,6 +155,14 @@ export default function EtapaEndereco({ endereco, setEndereco, bairros }) {
     )
   }
 
+  // A localização às vezes vem errada (ex.: o OpenStreetMap põe o ponto no bairro vizinho):
+  // apaga o ponto e o que ele preencheu, para o cliente digitar o endereço.
+  const limparLocalizacao = () => {
+    setEndereco({ ...endereco, ...DADOS_DO_CEP, ...DADOS_DO_BAIRRO, cep: '', localizacao: '', numero: '' })
+    setListaAberta(false)
+    document.getElementById('campo-bairro')?.focus()
+  }
+
   const digitarBairro = (e) => {
     setEndereco({ ...endereco, ...DADOS_DO_BAIRRO, bairroBusca: e.target.value })
     setListaAberta(true)
@@ -172,22 +180,6 @@ export default function EtapaEndereco({ endereco, setEndereco, bairros }) {
 
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-6">
-      <Campo label="Seu nome:" className="md:col-span-3">
-        <input className={input} value={endereco.nome} onChange={alterar('nome')} autoComplete="name" />
-      </Campo>
-      <Campo label="Pagamento:" className={endereco.pagamento === 'Dinheiro' ? 'md:col-span-2' : 'md:col-span-3'}>
-        <select className={input} value={endereco.pagamento} onChange={alterar('pagamento')}>
-          {PAGAMENTOS.map((p) => (
-            <option key={p}>{p}</option>
-          ))}
-        </select>
-      </Campo>
-      {endereco.pagamento === 'Dinheiro' && (
-        <Campo label="Troco para:">
-          <input className={input} value={endereco.troco} onChange={alterar('troco')} placeholder="Ex.: 100" />
-        </Campo>
-      )}
-
       <div className="md:col-span-6">
         <button
           type="button"
@@ -199,18 +191,27 @@ export default function EtapaEndereco({ endereco, setEndereco, bairros }) {
           {localizando ? 'Buscando sua localização...' : 'Usar minha localização atual'}
         </button>
         {endereco.localizacao && !localizando && (
-          <p className="mt-1 text-xs text-green-700">📍 Localização anexada ao pedido: o entregador recebe o ponto no mapa.</p>
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-green-50 px-3 py-2 text-xs text-green-800 ring-1 ring-green-200">
+            <p>📍 Localização anexada ao pedido: o entregador recebe o ponto no mapa.</p>
+            <button type="button" onClick={limparLocalizacao} className="font-semibold text-marca underline">
+              Localização errada? Limpar
+            </button>
+          </div>
         )}
       </div>
 
+      <Campo label="Seu nome:" className="md:col-span-6">
+        <input id="campo-nome" className={input} value={endereco.nome} onChange={alterar('nome')} autoComplete="name" />
+      </Campo>
       <Campo label="CEP (opcional):" className="md:col-span-2">
-        <input className={input} value={endereco.cep} onChange={mudarCep} inputMode="numeric" autoComplete="postal-code" placeholder="00000-000" />
+        <input id="campo-cep" className={input} value={endereco.cep} onChange={mudarCep} inputMode="numeric" autoComplete="postal-code" placeholder="00000-000" />
         <span className="text-xs font-normal text-gray-500">{buscando ? 'Consultando CEP...' : 'Não sabe? Deixe em branco e escolha o bairro.'}</span>
       </Campo>
 
       <div className="relative md:col-span-4">
         <Campo label="Bairro:">
           <input
+            id="campo-bairro"
             className={input}
             value={endereco.bairroBusca}
             onChange={digitarBairro}
@@ -253,15 +254,28 @@ export default function EtapaEndereco({ endereco, setEndereco, bairros }) {
 
       {/* Rua sempre editável: há CEPs de rodovia/área (ex.: 65916-973) que cobrem ruas próximas sem CEP próprio */}
       <Campo label="Rua / Avenida:" className="md:col-span-3">
-        <input className={input} value={endereco.endereco} onChange={alterar('endereco')} placeholder="Nome da sua rua" autoComplete="address-line1" />
+        <input id="campo-endereco" className={input} value={endereco.endereco} onChange={alterar('endereco')} placeholder="Nome da sua rua" autoComplete="address-line1" />
         {endereco.logradouroDoCep && <span className="text-xs font-normal text-gray-500">Preenchido pelo CEP. Se sua rua for outra, pode corrigir.</span>}
       </Campo>
       <Campo label="Número:">
-        <input className={input} value={endereco.numero} onChange={alterar('numero')} inputMode="numeric" />
+        <input id="campo-numero" className={input} value={endereco.numero} onChange={alterar('numero')} inputMode="numeric" />
       </Campo>
       <Campo label="Complemento:" className="md:col-span-2">
         <input className={input} value={endereco.complemento} onChange={alterar('complemento')} placeholder="Apto, bloco, referência" />
       </Campo>
+
+      <Campo label="Pagamento:" className="md:col-span-3">
+        <select className={input} value={endereco.pagamento} onChange={alterar('pagamento')}>
+          {PAGAMENTOS.map((p) => (
+            <option key={p}>{p}</option>
+          ))}
+        </select>
+      </Campo>
+      {endereco.pagamento === 'Dinheiro' && (
+        <Campo label="Troco para:" className="md:col-span-3">
+          <input className={input} value={endereco.troco} onChange={alterar('troco')} placeholder="Ex.: 100" />
+        </Campo>
+      )}
     </div>
   )
 }
@@ -308,17 +322,19 @@ function Situacao({ endereco, divergente }) {
   )
 }
 
-// Retorna a mensagem de erro do primeiro campo inválido, ou null
+// Retorna { mensagem, campo } do primeiro campo inválido, ou null.
+// `campo` casa com o id "campo-<campo>" do input, para focar nele.
 export function validarEndereco(e, bairros) {
-  if (!e.nome.trim()) return 'Informe o seu nome, por favor.'
+  const erro = (mensagem, campo) => ({ mensagem, campo })
+  if (!e.nome.trim()) return erro('Informe o seu nome, por favor.', 'nome')
   // CEP é opcional; se foi digitado, precisa estar completo e encontrado
   const cep = e.cep.replace(/\D/g, '')
-  if (cep && cep.length !== 8) return 'Complete o CEP ou deixe o campo em branco.'
-  if (cep && cep !== e.cepConsultado) return 'CEP não encontrado. Confira o número ou deixe o campo em branco.'
-  if (!e.bairroId) return 'Escolha o seu bairro na lista, por favor.'
-  if (cepDivergente(e, bairros)) return 'O CEP informado não corresponde ao bairro selecionado.'
-  if (!e.endereco.trim()) return 'Informe a Rua, por favor.'
-  if (!e.numero.trim()) return 'Informe o Número, por favor.'
+  if (cep && cep.length !== 8) return erro('Complete o CEP ou deixe o campo em branco.', 'cep')
+  if (cep && cep !== e.cepConsultado) return erro('CEP não encontrado. Confira o número ou deixe o campo em branco.', 'cep')
+  if (!e.bairroId) return erro('Escolha o seu bairro na lista, por favor.', 'bairro')
+  if (cepDivergente(e, bairros)) return erro('O CEP informado não corresponde ao bairro selecionado.', 'cep')
+  if (!e.endereco.trim()) return erro('Informe a Rua, por favor.', 'endereco')
+  if (!e.numero.trim()) return erro('Informe o Número, por favor.', 'numero')
   return null
 }
 
