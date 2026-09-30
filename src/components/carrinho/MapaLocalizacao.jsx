@@ -20,7 +20,7 @@ export default function MapaLocalizacao({ lat, lng, aoMover }) {
 
   useEffect(() => {
     const mapa = L.map(divRef.current, { scrollWheelZoom: false }).setView([lat, lng], 17)
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap',
     }).addTo(mapa)
