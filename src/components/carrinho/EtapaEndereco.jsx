@@ -1,8 +1,11 @@
-import { useState } from 'react'
+import { Suspense, lazy, useState } from 'react'
 import { FaCircleCheck, FaCircleInfo, FaLocationCrosshairs, FaTriangleExclamation } from 'react-icons/fa6'
 import { useToast } from '../../context/ToastContext'
 import { atende, bairroDoCep, buscarBairros, cepConfere, normalizarBairro } from '../../services/bairros'
 import { formatarPreco } from '../../lib/formatar'
+
+// Leaflet só é baixado quando o mapa aparece
+const MapaLocalizacao = lazy(() => import('./MapaLocalizacao'))
 
 export const PAGAMENTOS = ['Pix', 'Dinheiro', 'Cartão de crédito', 'Cartão de débito']
 
@@ -106,43 +109,47 @@ export default function EtapaEndereco({ endereco, setEndereco, bairros }) {
     if (digitos.length === 8 && mudou) buscarCep(digitos)
   }
 
-  // GPS do celular + OpenStreetMap (gratuito) para descobrir rua e bairro
+  // Ponto no mapa -> rua e bairro, pelo OpenStreetMap (gratuito).
+  // Usado pelo GPS e quando o cliente arrasta o pino no mapa.
+  const enderecoDoPonto = async (lat, lng) => {
+    const localizacao = `${lat.toFixed(6)},${lng.toFixed(6)}`
+    setLocalizando(true)
+    try {
+      const resposta = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&accept-language=pt-BR&lat=${lat}&lon=${lng}`,
+      )
+      const { address: a = {} } = await resposta.json()
+      const nomeBairro = a.suburb || a.neighbourhood || a.quarter || a.city_district || ''
+      const cadastrado = nomeBairro && bairros.find((b) => normalizarBairro(b.nome) === normalizarBairro(nomeBairro))
+
+      setEndereco((atual) => ({
+        ...atual,
+        // a localização substitui o CEP digitado antes (evita CEP e bairro de lugares diferentes)
+        ...DADOS_DO_CEP,
+        cep: '',
+        localizacao,
+        endereco: a.road || atual.endereco,
+        numero: a.house_number || atual.numero,
+        cidade: a.city || a.town || '',
+        uf: (a['ISO3166-2-lvl4'] ?? '').replace('BR-', ''),
+        ...(cadastrado ? dadosDoBairro(cadastrado) : { ...DADOS_DO_BAIRRO, bairroBusca: nomeBairro }),
+      }))
+      toast(cadastrado ? 'Localização encontrada! Confira o endereço.' : 'Localização encontrada. Escolha o seu bairro na lista.', 'sucesso')
+      if (!cadastrado) setListaAberta(true)
+    } catch {
+      // sem o endereço, a localização ainda vai no pedido para o entregador
+      setEndereco((atual) => ({ ...atual, localizacao }))
+      toast('Pegamos sua localização, mas não o endereço. Preencha o bairro e a rua.')
+    } finally {
+      setLocalizando(false)
+    }
+  }
+
   const usarLocalizacao = () => {
     if (!('geolocation' in navigator)) return toast('Seu navegador não permite pegar a localização.')
     setLocalizando(true)
     navigator.geolocation.getCurrentPosition(
-      async ({ coords }) => {
-        const localizacao = `${coords.latitude.toFixed(6)},${coords.longitude.toFixed(6)}`
-        try {
-          const resposta = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&accept-language=pt-BR&lat=${coords.latitude}&lon=${coords.longitude}`,
-          )
-          const { address: a = {} } = await resposta.json()
-          const nomeBairro = a.suburb || a.neighbourhood || a.quarter || a.city_district || ''
-          const cadastrado = nomeBairro && bairros.find((b) => normalizarBairro(b.nome) === normalizarBairro(nomeBairro))
-
-          setEndereco((atual) => ({
-            ...atual,
-            // a localização substitui o CEP digitado antes (evita CEP e bairro de lugares diferentes)
-            ...DADOS_DO_CEP,
-            cep: '',
-            localizacao,
-            endereco: a.road || atual.endereco,
-            numero: a.house_number || atual.numero,
-            cidade: a.city || a.town || '',
-            uf: (a['ISO3166-2-lvl4'] ?? '').replace('BR-', ''),
-            ...(cadastrado ? dadosDoBairro(cadastrado) : { ...DADOS_DO_BAIRRO, bairroBusca: nomeBairro }),
-          }))
-          toast(cadastrado ? 'Localização encontrada! Confira o endereço.' : 'Localização encontrada. Escolha o seu bairro na lista.', 'sucesso')
-          if (!cadastrado) setListaAberta(true)
-        } catch {
-          // sem o endereço, a localização ainda vai no pedido para o entregador
-          setEndereco((atual) => ({ ...atual, localizacao }))
-          toast('Pegamos sua localização, mas não o endereço. Preencha o bairro e a rua.')
-        } finally {
-          setLocalizando(false)
-        }
-      },
+      ({ coords }) => enderecoDoPonto(coords.latitude, coords.longitude),
       (erro) => {
         setLocalizando(false)
         toast(
@@ -175,6 +182,9 @@ export default function EtapaEndereco({ endereco, setEndereco, bairros }) {
     setListaAberta(false)
   }
 
+  const [lat, lng] = endereco.localizacao ? endereco.localizacao.split(',').map(Number) : []
+  const ponto = endereco.localizacao ? { lat, lng } : null
+
   const sugestoes = buscarBairros(bairros, endereco.bairroBusca)
   const divergente = cepDivergente(endereco, bairros)
 
@@ -190,12 +200,20 @@ export default function EtapaEndereco({ endereco, setEndereco, bairros }) {
           <FaLocationCrosshairs className={localizando ? 'animate-pulse' : ''} />
           {localizando ? 'Buscando sua localização...' : 'Usar minha localização atual'}
         </button>
-        {endereco.localizacao && !localizando && (
-          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-green-50 px-3 py-2 text-xs text-green-800 ring-1 ring-green-200">
-            <p>📍 Localização anexada ao pedido: o entregador recebe o ponto no mapa.</p>
-            <button type="button" onClick={limparLocalizacao} className="font-semibold text-marca underline">
-              Localização errada? Limpar
-            </button>
+        {ponto && (
+          <div className="mt-2 flex flex-col gap-2 rounded-lg bg-green-50 p-3 text-xs text-green-800 ring-1 ring-green-200">
+            <p>
+              📍 <b>Confira o ponto da entrega.</b> Se não estiver no lugar certo, arraste o pino ou toque no mapa.
+            </p>
+            <Suspense fallback={<div className="h-56 animate-pulse rounded-lg bg-gray-100" />}>
+              <MapaLocalizacao lat={ponto.lat} lng={ponto.lng} aoMover={({ lat, lng }) => enderecoDoPonto(lat, lng)} />
+            </Suspense>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span>{localizando ? 'Atualizando endereço...' : 'O entregador recebe este ponto no mapa.'}</span>
+              <button type="button" onClick={limparLocalizacao} className="font-semibold text-marca underline">
+                Remover localização
+              </button>
+            </div>
           </div>
         )}
       </div>
