@@ -157,6 +157,7 @@ export default function Pedidos() {
                               <Miniatura src={fotos[String(i.id)] ?? i.imagem_url} className="size-12" />
                               <div className="min-w-0 flex-1">
                                 <p className="truncate text-sm font-medium">{i.nome}</p>
+                                {i.obs && <p className="text-xs break-words text-amber-700">Obs.: {i.obs}</p>}
                                 <p className="text-xs text-neutral-500">
                                   {i.qtd}x {dinheiro.format(i.preco)}
                                 </p>

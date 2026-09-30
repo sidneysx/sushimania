@@ -62,7 +62,9 @@ begin
       'nome', prod.nome,
       'qtd', qtd,
       'preco', prod.preco,
-      'imagem_url', prod.imagem_url
+      'imagem_url', prod.imagem_url,
+      -- observação do cliente no item (ex.: "sem cebolinha"): texto livre, até 140 caracteres
+      'obs', nullif(left(trim(item ->> 'obs'), 140), '')
     );
   end loop;
 

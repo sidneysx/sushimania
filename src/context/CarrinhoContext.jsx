@@ -3,29 +3,35 @@ import { usePersistente } from '../lib/usePersistente'
 
 const CarrinhoContext = createContext(null)
 
+// Mesmo produto com observações diferentes vira linhas separadas no carrinho
+// (ex.: 1 Combo 1 normal e 1 Combo 1 "sem cebolinha")
+export const chaveDoItem = (item) => `${item.id}|${item.obs ?? ''}`
+
 export function CarrinhoProvider({ children }) {
   // itens guardados no navegador: atualizar a página não perde o carrinho (só limpa ao enviar o pedido)
   const [itens, setItens] = usePersistente('carrinho-itens', [])
   // aberto só na aba atual: atualizar a página no meio do pedido volta para o carrinho aberto
   const [aberto, setAberto] = usePersistente('carrinho-aberto', false, 'sessao')
 
-  const adicionar = (produto, qntd) => {
+  const adicionar = (produto, qntd, obs = '') => {
+    const novo = { ...produto, qntd, obs: obs.trim() }
+    const chave = chaveDoItem(novo)
     setItens((atuais) => {
-      const existe = atuais.find((i) => i.id === produto.id)
+      const existe = atuais.find((i) => chaveDoItem(i) === chave)
       if (existe) {
-        return atuais.map((i) => (i.id === produto.id ? { ...i, qntd: i.qntd + qntd } : i))
+        return atuais.map((i) => (chaveDoItem(i) === chave ? { ...i, qntd: i.qntd + qntd } : i))
       }
-      return [...atuais, { ...produto, qntd }]
+      return [...atuais, novo]
     })
   }
 
-  const alterarQuantidade = (id, qntd) => {
+  const alterarQuantidade = (chave, qntd) => {
     setItens((atuais) =>
-      qntd <= 0 ? atuais.filter((i) => i.id !== id) : atuais.map((i) => (i.id === id ? { ...i, qntd } : i)),
+      qntd <= 0 ? atuais.filter((i) => chaveDoItem(i) !== chave) : atuais.map((i) => (chaveDoItem(i) === chave ? { ...i, qntd } : i)),
     )
   }
 
-  const remover = (id) => setItens((atuais) => atuais.filter((i) => i.id !== id))
+  const remover = (chave) => setItens((atuais) => atuais.filter((i) => chaveDoItem(i) !== chave))
 
   const limpar = () => setItens([])
 

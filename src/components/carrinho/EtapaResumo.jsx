@@ -1,5 +1,5 @@
 import { FaMapLocationDot, FaImage, FaWallet } from 'react-icons/fa6'
-import { useCarrinho } from '../../context/CarrinhoContext'
+import { chaveDoItem, useCarrinho } from '../../context/CarrinhoContext'
 import { formatarPreco } from '../../lib/formatar'
 
 export default function EtapaResumo({ endereco }) {
@@ -10,7 +10,7 @@ export default function EtapaResumo({ endereco }) {
       <p className="mb-3 font-bold">Itens do pedido:</p>
       <div className="flex flex-col gap-2">
         {itens.map((item) => (
-          <div key={item.id} className="flex items-center gap-3 rounded-xl bg-white p-3 shadow-sm">
+          <div key={chaveDoItem(item)} className="flex items-center gap-3 rounded-xl bg-white p-3 shadow-sm">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gray-100">
               {item.imagem_url ? (
                 <img src={item.imagem_url} alt="" className="h-full w-full object-cover" />
@@ -18,8 +18,9 @@ export default function EtapaResumo({ endereco }) {
                 <FaImage className="text-gray-300" />
               )}
             </div>
-            <div className="flex-1">
+            <div className="min-w-0 flex-1">
               <p className="font-bold">{item.nome}</p>
+              {item.obs && <p className="text-xs break-words text-gray-500">Obs.: {item.obs}</p>}
               <p className="text-sm text-marca">{formatarPreco(item.preco)}</p>
             </div>
             <p>

@@ -50,7 +50,10 @@ function montarMensagem(codigo, itens, e, subtotal) {
     `*Nome:* ${e.nome.trim()}`,
     '',
     '*Itens do pedido:*',
-    ...itens.map((i) => `*${i.qntd}x* ${i.nome} ....... ${formatarPreco(i.preco * i.qntd)}`),
+    ...itens.flatMap((i) => [
+      `*${i.qntd}x* ${i.nome} ....... ${formatarPreco(i.preco * i.qntd)}`,
+      ...(i.obs ? [`   _Obs.: ${i.obs}_`] : []),
+    ]),
     '',
     '*Endereço de entrega:*',
     enderecoCompleto(e),
@@ -134,7 +137,7 @@ export default function ModalCarrinho() {
       bairro: bairroDoPedido(endereco),
       cep: endereco.cep || null,
       localizacao: endereco.localizacao || null,
-      itens: itens.map(({ id, nome, qntd, preco, imagem_url }) => ({ id, nome, qtd: qntd, preco: Number(preco), imagem_url })),
+      itens: itens.map(({ id, nome, qntd, preco, imagem_url, obs }) => ({ id, nome, qtd: qntd, preco: Number(preco), imagem_url, obs: obs || null })),
       // subtotal, taxa e total são recalculados pelo banco (gatilho validar_pedido)
       subtotal: totais.subtotal,
       taxa_entrega: endereco.taxa,
