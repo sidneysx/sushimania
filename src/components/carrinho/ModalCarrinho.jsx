@@ -7,6 +7,7 @@ import { formatarPreco } from '../../lib/formatar'
 import { usePersistente } from '../../lib/usePersistente'
 import { textoFechado } from '../../lib/horario'
 import { useLojaAberta } from '../../lib/useLojaAberta'
+import { useTravarRolagem } from '../../lib/useTravarRolagem'
 import { linkWhatsapp } from '../../lib/config'
 import { listarBairros } from '../../services/bairros'
 import { gerarCodigo, registrarPedido } from '../../services/pedidos'
@@ -83,6 +84,7 @@ export default function ModalCarrinho() {
   // campos novos que ainda não existiam no que foi salvo ficam com o valor padrão
   const endereco = { ...ENDERECO_VAZIO, ...enderecoSalvo }
   const [bairros, setBairros] = useState([])
+  useTravarRolagem(aberto)
 
   useEffect(() => {
     if (aberto && bairros.length === 0) {
@@ -184,7 +186,7 @@ export default function ModalCarrinho() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto overscroll-contain">
         <div className="container mx-auto px-4 py-6">
           {etapaAtual === 1 && <EtapaItens />}
           {etapaAtual === 2 && <EtapaEndereco endereco={endereco} setEndereco={setEndereco} bairros={bairros} />}

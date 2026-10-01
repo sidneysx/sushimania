@@ -1,12 +1,10 @@
 import { useEffect } from 'react'
 import { CarrinhoProvider } from '../context/CarrinhoContext'
 import { useConfig } from '../context/ConfigContext'
-import Header from '../components/loja/Header'
-import Banner from '../components/loja/Banner'
+import TopoLoja from '../components/loja/TopoLoja'
 import Cardapio from '../components/loja/Cardapio'
-import Servicos from '../components/loja/Servicos'
 import Footer from '../components/loja/Footer'
-import BotaoCarrinho from '../components/loja/BotaoCarrinho'
+import BarraInferior from '../components/loja/BarraInferior'
 import ModalCarrinho from '../components/carrinho/ModalCarrinho'
 
 export default function Loja() {
@@ -18,14 +16,12 @@ export default function Loja() {
 
   return (
     <CarrinhoProvider>
-      <Header />
+      <TopoLoja />
       <main>
-        <Banner />
         <Cardapio />
-        <Servicos />
       </main>
       <Footer />
-      <BotaoCarrinho />
+      <BarraInferior />
       <ModalCarrinho />
     </CarrinhoProvider>
   )

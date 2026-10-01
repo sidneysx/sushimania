@@ -1,4 +1,3 @@
-export const ITENS_POR_PAGINA = 8
 
 // "(99) 98123-4567" -> "5599981234567"
 export const soNumeros = (texto = '') => texto.replace(/\D/g, '')

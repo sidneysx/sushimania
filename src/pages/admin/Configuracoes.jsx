@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Clock, ImagePlus, Loader2, Palette, Phone, Sparkles, Trash2 } from 'lucide-react'
 import { useConfig } from '../../context/ConfigContext'
-import { CONFIG_PADRAO, salvarConfig } from '../../services/config'
+import { salvarConfig } from '../../services/config'
 import { DIAS, HORARIOS_PADRAO, situacaoDaLoja, textoFechado } from '../../lib/horario'
 import { enviarImagem, removerImagem } from '../../services/produtos'
 import { usePainel } from './PainelContext'
@@ -141,55 +141,17 @@ function Formulario({ config }) {
       </Cartao>
 
       <Cartao className="space-y-5">
-        <Titulo icone={Sparkles} titulo="Topo do site" descricao="A frase e a foto de destaque que aparecem logo no começo do site. No celular a foto fica escondida." />
-
-        <div className="grid gap-5 md:grid-cols-2">
-          <Campo rotulo="Título" dica={'Ex.: "Escolha sua comida"'}>
-            <input value={form.banner_titulo} onChange={alterar('banner_titulo')} maxLength={80} placeholder={CONFIG_PADRAO.banner_titulo} className={classeInput()} />
-          </Campo>
-          <Campo rotulo="Parte colorida do título" dica={'Aparece na cor principal. Ex.: "favorita."'}>
-            <input value={form.banner_destaque} onChange={alterar('banner_destaque')} maxLength={40} placeholder={CONFIG_PADRAO.banner_destaque} className={classeInput()} />
-          </Campo>
-        </div>
-        <Campo rotulo="Texto abaixo do título">
-          <textarea
-            rows={2}
-            value={form.banner_texto}
-            onChange={alterar('banner_texto')}
-            maxLength={300}
-            placeholder={CONFIG_PADRAO.banner_texto}
-            className={`${classeInput()} h-auto py-2`}
+        <Titulo icone={Sparkles} titulo="Capa do site" descricao="Foto larga que aparece no topo do site, atrás da logo." />
+        <Grupo rotulo="Foto de capa">
+          <SeletorImagem
+            url={form.destaque_url}
+            enviando={enviando === 'destaque_url'}
+            onEscolher={trocarImagem('destaque_url')}
+            onRemover={() => setForm({ ...form, destaque_url: null })}
+            classePrevia="h-20 w-40 object-cover"
+            dica="Foto deitada (paisagem) de um combo ou prato bonito. Sem foto, a capa fica na cor principal."
           />
-        </Campo>
-
-        <div className="grid items-center gap-6 md:grid-cols-[1fr_320px]">
-          <Grupo rotulo="Foto de destaque">
-            <SeletorImagem
-              url={form.destaque_url}
-              enviando={enviando === 'destaque_url'}
-              onEscolher={trocarImagem('destaque_url')}
-              onRemover={() => setForm({ ...form, destaque_url: null })}
-              classePrevia="size-24 object-cover"
-              dica="Foto quadrada de um combo ou prato bonito"
-            />
-          </Grupo>
-          {/* Mini prévia do topo do site */}
-          <div className="grid grid-cols-2 items-center gap-3 rounded-2xl bg-[#fffdf7] p-4 ring-1 ring-neutral-200">
-            <div className="min-w-0 space-y-1.5">
-              <p className="text-sm font-extrabold leading-tight">
-                {form.banner_titulo || CONFIG_PADRAO.banner_titulo}{' '}
-                <span style={{ color: corValida ? form.cor : '#999' }}>{form.banner_destaque || CONFIG_PADRAO.banner_destaque}</span>
-              </p>
-              <p className="line-clamp-3 text-[9px] leading-snug text-neutral-500">{form.banner_texto || CONFIG_PADRAO.banner_texto}</p>
-              <div className="mt-2 h-3 w-12 rounded-full" style={{ backgroundColor: corValida ? form.cor : '#999' }} />
-            </div>
-            {form.destaque_url ? (
-              <img src={form.destaque_url} alt="" className="aspect-square w-full rounded-xl object-cover" />
-            ) : (
-              <div className="grid aspect-square w-full place-items-center rounded-xl bg-neutral-100 text-[10px] text-neutral-400">sem foto</div>
-            )}
-          </div>
-        </div>
+        </Grupo>
       </Cartao>
 
       <Cartao className="space-y-5">

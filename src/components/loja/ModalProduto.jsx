@@ -5,6 +5,7 @@ import { useToast } from '../../context/ToastContext'
 import { formatarPreco } from '../../lib/formatar'
 import { textoFechado } from '../../lib/horario'
 import { useLojaAberta } from '../../lib/useLojaAberta'
+import { useTravarRolagem } from '../../lib/useTravarRolagem'
 
 const LIMITE_OBS = 140
 
@@ -17,16 +18,12 @@ export default function ModalProduto({ produto, fechar }) {
   const toast = useToast()
   const { aberta, abreQuando } = useLojaAberta()
 
-  // Esc fecha e a página de trás não rola enquanto o card está aberto
+  // a página de trás não rola enquanto o card está aberto; Esc fecha
+  useTravarRolagem()
   useEffect(() => {
     const aoTeclar = (e) => e.key === 'Escape' && fechar()
-    const overflowAntes = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
     window.addEventListener('keydown', aoTeclar)
-    return () => {
-      document.body.style.overflow = overflowAntes
-      window.removeEventListener('keydown', aoTeclar)
-    }
+    return () => window.removeEventListener('keydown', aoTeclar)
   }, [fechar])
 
   const adicionarAoCarrinho = () => {
@@ -44,7 +41,7 @@ export default function ModalProduto({ produto, fechar }) {
         onClick={(e) => e.stopPropagation()}
         className="flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-3xl bg-white sm:max-w-lg sm:rounded-3xl"
       >
-        <div className="overflow-y-auto">
+        <div className="overflow-y-auto overscroll-contain">
           <div className="relative flex aspect-[4/3] items-center justify-center bg-gray-100">
             {produto.imagem_url ? (
               <img src={produto.imagem_url} alt={produto.nome} className="h-full w-full object-cover" />

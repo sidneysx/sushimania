@@ -13,6 +13,6 @@ export function useLojaAberta() {
     return () => clearInterval(id)
   }, [])
 
-  if (!carregada) return { aberta: true, abreQuando: null }
+  if (!carregada) return { aberta: true, fecha: null, abreQuando: null, hoje: null }
   return situacaoDaLoja(config.horarios, agora)
 }

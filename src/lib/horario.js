@@ -26,16 +26,17 @@ const emMinutos = (hhmm) => {
 // fecha <= abre: passa da meia-noite (ex.: 18:00 às 02:00)
 const viraNoite = (h) => emMinutos(h.fecha) <= emMinutos(h.abre)
 
-function estaAberta(horarios, { dia, minutos }) {
+// Aberta: devolve o horário em que fecha ("23:00"); fechada: null
+function fechaAs(horarios, { dia, minutos }) {
   const hoje = horarios[dia]
   if (hoje?.aberto) {
     const abre = emMinutos(hoje.abre)
     // fecha incluído: "00:00 às 23:59" fica aberto o dia inteiro
-    if (viraNoite(hoje) ? minutos >= abre : minutos >= abre && minutos <= emMinutos(hoje.fecha)) return true
+    if (viraNoite(hoje) ? minutos >= abre : minutos >= abre && minutos <= emMinutos(hoje.fecha)) return hoje.fecha
   }
   // resto do expediente de ontem que passou da meia-noite
   const ontem = horarios[(dia + 6) % 7]
-  return !!ontem?.aberto && viraNoite(ontem) && minutos < emMinutos(ontem.fecha)
+  return ontem?.aberto && viraNoite(ontem) && minutos < emMinutos(ontem.fecha) ? ontem.fecha : null
 }
 
 // "hoje às 18:30", "amanhã às 18:30", "terça às 18:30" ou null se não abre nenhum dia
@@ -55,8 +56,13 @@ const valido = (horarios) => Array.isArray(horarios) && horarios.length === 7
 export function situacaoDaLoja(horarios, agora) {
   if (!valido(horarios)) horarios = HORARIOS_PADRAO
   const momento = agoraNaLoja(agora)
-  const aberta = estaAberta(horarios, momento)
-  return { aberta, abreQuando: aberta ? null : proximaAbertura(horarios, momento) }
+  const fecha = fechaAs(horarios, momento)
+  return {
+    aberta: !!fecha,
+    fecha, // "23:00" quando aberta
+    abreQuando: fecha ? null : proximaAbertura(horarios, momento),
+    hoje: horarios[momento.dia], // horário de hoje, para mostrar no topo
+  }
 }
 
 export const textoFechado = (abreQuando) =>
