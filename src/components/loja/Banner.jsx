@@ -25,7 +25,7 @@ export default function Banner() {
   const { config } = useConfig()
 
   return (
-    <section className="container mx-auto grid items-center gap-10 px-4 py-10 md:grid-cols-2 md:py-20">
+    <section className="container mx-auto grid min-h-[calc(100svh-4.5rem)] content-center items-center gap-10 px-4 py-10 md:min-h-0 md:grid-cols-2 md:py-20">
       <div>
         <h1 className="text-3xl font-extrabold leading-tight sm:text-4xl md:text-5xl">
           {config.banner_titulo} {config.banner_destaque && <span className="text-marca">{config.banner_destaque}</span>}
