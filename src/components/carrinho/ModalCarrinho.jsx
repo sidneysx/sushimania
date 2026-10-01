@@ -3,6 +3,7 @@ import { FaMotorcycle } from 'react-icons/fa6'
 import { useCarrinho } from '../../context/CarrinhoContext'
 import { useToast } from '../../context/ToastContext'
 import { useConfig } from '../../context/ConfigContext'
+import { useConta } from '../../context/ContaContext'
 import { formatarPreco } from '../../lib/formatar'
 import { usePersistente } from '../../lib/usePersistente'
 import { textoFechado } from '../../lib/horario'
@@ -11,8 +12,9 @@ import { useTravarRolagem } from '../../lib/useTravarRolagem'
 import { linkWhatsapp } from '../../lib/config'
 import { listarBairros } from '../../services/bairros'
 import { gerarCodigo, registrarPedido } from '../../services/pedidos'
+import { salvarEndereco } from '../../services/conta'
 import EtapaItens from './EtapaItens'
-import EtapaEndereco, { DADOS_DO_BAIRRO, DADOS_DO_CEP, PAGAMENTOS, bairroDoPedido, validarEndereco } from './EtapaEndereco'
+import EtapaEndereco, { BAIRRO_NOVO, DADOS_DO_BAIRRO, DADOS_DO_CEP, PAGAMENTOS, bairroDoPedido, validarEndereco } from './EtapaEndereco'
 import EtapaResumo from './EtapaResumo'
 
 const TITULOS = { 1: 'Seu carrinho:', 2: 'Seus dados e entrega:', 3: 'Resumo do pedido:' }
@@ -27,6 +29,10 @@ const ENDERECO_VAZIO = {
   numero: '',
   complemento: '',
   localizacao: '', // "lat,lng" do botão "Usar minha localização"
+  // cliente com conta: endereço salvo escolhido ('' = digitando um novo) e se o novo deve ser salvo
+  enderecoSalvoId: '',
+  salvarEndereco: true,
+  apelido: 'Casa',
   ...DADOS_DO_CEP,
   ...DADOS_DO_BAIRRO,
 }
@@ -76,6 +82,7 @@ export default function ModalCarrinho() {
   const { itens, totais, aberto, setAberto, limpar } = useCarrinho()
   const { config } = useConfig()
   const toast = useToast()
+  const { cliente, recarregar: recarregarConta } = useConta()
   // fora do horário: o cliente vê tudo e monta o carrinho, mas não avança nem envia
   const { aberta, abreQuando } = useLojaAberta()
   // etapa e dados de entrega sobrevivem a atualizar a página; só são limpos ao enviar o pedido
@@ -117,9 +124,13 @@ export default function ModalCarrinho() {
     const erro = validarEndereco(endereco, bairros)
     if (erro) {
       toast(erro.mensagem)
-      const campo = document.getElementById(`campo-${erro.campo}`)
-      campo?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      campo?.focus({ preventScroll: true })
+      // endereço salvo com problema (ex.: bairro removido): mostra o formulário para corrigir
+      if (endereco.enderecoSalvoId) setEndereco({ ...endereco, enderecoSalvoId: '' })
+      requestAnimationFrame(() => {
+        const campo = document.getElementById(`campo-${erro.campo}`)
+        campo?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        campo?.focus({ preventScroll: true })
+      })
       return
     }
     setEtapa(3)
@@ -153,7 +164,29 @@ export default function ModalCarrinho() {
       total,
     }).catch((e) => console.error('Pedido não registrado:', e.message))
 
-    toast(`Pedido #${codigo} enviado! Finalize a conversa no WhatsApp.`, 'sucesso', 6000)
+    // Endereço novo de quem tem conta: guarda para os próximos pedidos
+    if (cliente && !endereco.enderecoSalvoId && endereco.salvarEndereco) {
+      salvarEndereco({
+        apelido: endereco.apelido.trim() || 'Casa',
+        cep: endereco.cep || null,
+        bairro_id: endereco.bairroId && endereco.bairroId !== BAIRRO_NOVO ? endereco.bairroId : null,
+        bairro: endereco.bairro.trim(),
+        endereco: endereco.endereco.trim(),
+        numero: endereco.numero.trim(),
+        complemento: endereco.complemento.trim() || null,
+        cidade: endereco.cidade || null,
+        uf: endereco.uf || null,
+        localizacao: endereco.localizacao || null,
+      })
+        .then(recarregarConta)
+        .catch((e) => console.error('Endereço não salvo:', e.message))
+    }
+
+    toast(
+      cliente ? `Pedido #${codigo} enviado! Acompanhe a entrega em Minha conta.` : `Pedido #${codigo} enviado! Finalize a conversa no WhatsApp.`,
+      'sucesso',
+      6000,
+    )
     limpar()
     setEndereco(ENDERECO_VAZIO)
     fechar()

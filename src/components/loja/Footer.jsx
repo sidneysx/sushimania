@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { FaInstagram, FaFacebookF, FaWhatsapp } from 'react-icons/fa6'
 import { useConfig } from '../../context/ConfigContext'
 import { linkSeguro, linkWhatsapp } from '../../lib/config'
@@ -40,8 +41,12 @@ export default function Footer() {
             <b>{config.nome}</b> &copy; {ANO} Todos os direitos reservados
           </p>
           {/* versão vem do package.json no build (vite.config.js); o commit aparece ao passar o mouse */}
-          <p className="mt-0.5 text-[11px] tracking-wide text-gray-400" title={__COMMIT__ ? `build ${__COMMIT__}` : undefined}>
-            v{__VERSAO__}
+          <p className="mt-0.5 text-[11px] tracking-wide text-gray-400">
+            <Link to="/privacidade" className="hover:text-marca hover:underline">
+              Política de Privacidade
+            </Link>
+            {' · '}
+            <span title={__COMMIT__ ? `build ${__COMMIT__}` : undefined}>v{__VERSAO__}</span>
           </p>
         </div>
         <RedesSociais className="bg-gray-100 p-3 text-lg" />

@@ -1,6 +1,8 @@
 import { Suspense, lazy, useEffect, useRef, useState } from 'react'
-import { FaCircleCheck, FaCircleInfo, FaLocationCrosshairs, FaTriangleExclamation } from 'react-icons/fa6'
+import { Link } from 'react-router-dom'
+import { FaCircleCheck, FaHouse, FaPlus, FaUser, FaCircleInfo, FaLocationCrosshairs, FaTriangleExclamation } from 'react-icons/fa6'
 import { useToast } from '../../context/ToastContext'
+import { useConta } from '../../context/ContaContext'
 import { atende, buscarBairros, cepConfere } from '../../services/bairros'
 
 // Leaflet só é baixado quando o mapa aparece
@@ -9,7 +11,7 @@ const MapaLocalizacao = lazy(() => import('./MapaLocalizacao'))
 export const PAGAMENTOS = ['Pix', 'Dinheiro', 'Cartão de crédito', 'Cartão de débito']
 
 // Bairro que não está na lista (o cliente digitou): taxa a combinar
-const BAIRRO_NOVO = 'novo'
+export const BAIRRO_NOVO = 'novo'
 
 // Dados que vêm do CEP: apagados quando o CEP muda. O CEP não preenche bairro nem rua,
 // só confere se combina com o bairro escolhido e informa a cidade.
@@ -63,6 +65,7 @@ export function cepDivergente(e, bairros) {
 
 export default function EtapaEndereco({ endereco, setEndereco, bairros }) {
   const toast = useToast()
+  const { usuario, cliente, enderecos } = useConta()
   const [buscando, setBuscando] = useState(false)
   const [listaAberta, setListaAberta] = useState(false)
   const [localizando, setLocalizando] = useState(false)
@@ -120,9 +123,7 @@ export default function EtapaEndereco({ endereco, setEndereco, bairros }) {
     const localizacao = `${lat.toFixed(6)},${lng.toFixed(6)}`
     setLocalizando(true)
     try {
-      const resposta = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&accept-language=pt-BR&lat=${lat}&lon=${lng}`,
-      )
+      const resposta = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&accept-language=pt-BR&lat=${lat}&lon=${lng}`)
       const { address: a = {} } = await resposta.json()
       setEndereco((atual) => ({
         ...atual,
@@ -180,84 +181,183 @@ export default function EtapaEndereco({ endereco, setEndereco, bairros }) {
   const [lat, lng] = endereco.localizacao ? endereco.localizacao.split(',').map(Number) : []
   const ponto = endereco.localizacao ? { lat, lng } : null
 
+  // Endereço salvo na conta -> preenche os campos (o formulário fica escondido)
+  const usarSalvo = (salvo) => {
+    const cadastrado = bairros.find((b) => b.id === salvo.bairro_id)
+    const cep = salvo.cep ?? ''
+    setEndereco((atual) => ({
+      ...atual,
+      ...DADOS_DO_CEP,
+      ...(cadastrado ? dadosDoBairro(cadastrado) : { ...DADOS_DO_BAIRRO, bairroBusca: salvo.bairro, bairroId: BAIRRO_NOVO, bairro: salvo.bairro, situacao: 'novo' }),
+      // CEP já conferido quando o endereço foi salvo
+      cep,
+      cepConsultado: cep.replace(/\D/g, ''),
+      endereco: salvo.endereco,
+      numero: salvo.numero,
+      complemento: salvo.complemento ?? '',
+      localizacao: salvo.localizacao ?? '',
+      cidade: salvo.cidade ?? '',
+      uf: salvo.uf ?? '',
+      enderecoSalvoId: String(salvo.id),
+    }))
+  }
+
+  const novoEndereco = () =>
+    setEndereco((atual) => ({
+      ...atual,
+      ...DADOS_DO_CEP,
+      ...DADOS_DO_BAIRRO,
+      cep: '',
+      endereco: '',
+      numero: '',
+      complemento: '',
+      localizacao: '',
+      enderecoSalvoId: '',
+    }))
+
+  // Cliente com conta: nome já preenchido e, se ainda não escolheu endereço, o primeiro salvo
+  useEffect(() => {
+    if (!cliente || !bairros.length) return
+    setEndereco((atual) => (atual.nome ? atual : { ...atual, nome: cliente.nome }))
+    if (enderecos.length && !endereco.enderecoSalvoId && !endereco.endereco && !endereco.bairroId) usarSalvo(enderecos[0])
+  }, [cliente?.id, bairros.length, enderecos.length])
+
+  // sem conta (ou saiu dela) o formulário sempre aparece
+  const mostrarFormulario = !endereco.enderecoSalvoId || !cliente
+
   const sugestoes = buscarBairros(bairros, endereco.bairroBusca)
   const divergente = cepDivergente(endereco, bairros)
 
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-6">
-      <div className="md:col-span-6">
-        <button
-          type="button"
-          onClick={usarLocalizacao}
-          disabled={localizando}
-          className="flex w-full items-center justify-center gap-2 rounded-lg border border-marca/40 bg-marca/5 px-4 py-3 font-semibold text-marca transition hover:bg-marca/10 disabled:opacity-60 md:w-auto"
-        >
-          <FaLocationCrosshairs className={localizando ? 'animate-pulse' : ''} />
-          {localizando ? 'Buscando sua localização...' : 'Usar minha localização atual'}
-        </button>
-        {ponto && (
-          <div className="mt-2 flex flex-col gap-2 rounded-lg bg-green-50 p-3 text-xs text-green-800 ring-1 ring-green-200">
-            <p>
-              📍 <b>Confira o ponto da entrega.</b> Se não estiver no lugar certo, arraste o pino ou toque no mapa.
-            </p>
-            <Suspense fallback={<div className="h-56 animate-pulse rounded-lg bg-gray-100" />}>
-              <MapaLocalizacao lat={ponto.lat} lng={ponto.lng} aoMover={({ lat, lng }) => enderecoDoPonto(lat, lng)} />
-            </Suspense>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span>{localizando ? 'Atualizando endereço...' : 'O entregador recebe este ponto no mapa.'}</span>
-              <button type="button" onClick={limparLocalizacao} className="font-semibold text-marca underline">
-                Remover localização
-              </button>
-            </div>
+      {!usuario && (
+        <Link to="/conta" className="flex items-center gap-3 rounded-xl bg-white p-3 text-sm shadow-sm ring-1 ring-gray-100 md:col-span-6">
+          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-marca/10 text-marca">
+            <FaUser />
+          </span>
+          <span className="flex-1">
+            <b>Tem conta?</b> Entre para usar seus endereços salvos e acompanhar a entrega.
+          </span>
+          <span className="font-semibold text-marca">Entrar</span>
+        </Link>
+      )}
+
+      {cliente && enderecos.length > 0 && (
+        <div className="md:col-span-6">
+          <p className="mb-2 text-sm font-semibold">Entregar em:</p>
+          <div className="grid gap-2 md:grid-cols-2">
+            {enderecos.map((salvo) => {
+              const marcado = endereco.enderecoSalvoId === String(salvo.id)
+              return (
+                <button
+                  key={salvo.id}
+                  type="button"
+                  onClick={() => usarSalvo(salvo)}
+                  className={`flex items-start gap-3 rounded-xl bg-white p-3 text-left ring-2 transition ${marcado ? 'ring-marca' : 'ring-gray-100 hover:ring-gray-200'}`}
+                >
+                  <FaHouse className={`mt-1 shrink-0 ${marcado ? 'text-marca' : 'text-gray-400'}`} />
+                  <span className="min-w-0 text-sm">
+                    <b className="block">{salvo.apelido}</b>
+                    <span className="block truncate text-gray-600">
+                      {salvo.endereco}, {salvo.numero}
+                    </span>
+                    <span className="block truncate text-gray-500">{salvo.bairro}</span>
+                  </span>
+                </button>
+              )
+            })}
+            <button
+              type="button"
+              onClick={novoEndereco}
+              className={`flex items-center justify-center gap-2 rounded-xl p-3 text-sm font-semibold transition ${
+                mostrarFormulario ? 'bg-white text-marca ring-2 ring-marca' : 'border-2 border-dashed border-gray-200 text-gray-500'
+              }`}
+            >
+              <FaPlus /> Novo endereço
+            </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {mostrarFormulario && (
+        <div className="md:col-span-6">
+          <button
+            type="button"
+            onClick={usarLocalizacao}
+            disabled={localizando}
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-marca/40 bg-marca/5 px-4 py-3 font-semibold text-marca transition hover:bg-marca/10 disabled:opacity-60 md:w-auto"
+          >
+            <FaLocationCrosshairs className={localizando ? 'animate-pulse' : ''} />
+            {localizando ? 'Buscando sua localização...' : 'Usar minha localização atual'}
+          </button>
+          {ponto && (
+            <div className="mt-2 flex flex-col gap-2 rounded-lg bg-green-50 p-3 text-xs text-green-800 ring-1 ring-green-200">
+              <p>
+                📍 <b>Confira o ponto da entrega.</b> Se não estiver no lugar certo, arraste o pino ou toque no mapa.
+              </p>
+              <Suspense fallback={<div className="h-56 animate-pulse rounded-lg bg-gray-100" />}>
+                <MapaLocalizacao lat={ponto.lat} lng={ponto.lng} aoMover={({ lat, lng }) => enderecoDoPonto(lat, lng)} />
+              </Suspense>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span>{localizando ? 'Atualizando endereço...' : 'O entregador recebe este ponto no mapa.'}</span>
+                <button type="button" onClick={limparLocalizacao} className="font-semibold text-marca underline">
+                  Remover localização
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <Campo label="Seu nome:" className="md:col-span-6">
         <input id="campo-nome" className={input} value={endereco.nome} onChange={alterar('nome')} autoComplete="name" />
       </Campo>
-      <Campo label="CEP (opcional):" className="md:col-span-2">
-        <input id="campo-cep" className={input} value={endereco.cep} onChange={mudarCep} inputMode="numeric" autoComplete="postal-code" placeholder="00000-000" />
-        <span className="text-xs font-normal text-gray-500">{buscando ? 'Consultando CEP...' : 'Não sabe? Deixe em branco e escolha o bairro.'}</span>
-      </Campo>
+      {mostrarFormulario && (
+        <>
+          <Campo label="CEP (opcional):" className="md:col-span-2">
+            <input id="campo-cep" className={input} value={endereco.cep} onChange={mudarCep} inputMode="numeric" autoComplete="postal-code" placeholder="00000-000" />
+            <span className="text-xs font-normal text-gray-500">{buscando ? 'Consultando CEP...' : 'Não sabe? Deixe em branco e escolha o bairro.'}</span>
+          </Campo>
 
-      <div className="relative md:col-span-4">
-        <Campo label="Bairro:">
-          <input
-            id="campo-bairro"
-            className={input}
-            value={endereco.bairroBusca}
-            onChange={digitarBairro}
-            onFocus={() => setListaAberta(true)}
-            onBlur={() => setListaAberta(false)}
-            placeholder="Digite o nome do seu bairro ou residencial"
-            autoComplete="off"
-            role="combobox"
-            aria-expanded={listaAberta}
-          />
-        </Campo>
+          <div className="relative md:col-span-4">
+            <Campo label="Bairro:">
+              <input
+                id="campo-bairro"
+                className={input}
+                value={endereco.bairroBusca}
+                onChange={digitarBairro}
+                onFocus={() => setListaAberta(true)}
+                onBlur={() => setListaAberta(false)}
+                placeholder="Digite o nome do seu bairro ou residencial"
+                autoComplete="off"
+                role="combobox"
+                aria-expanded={listaAberta}
+              />
+            </Campo>
 
-        {listaAberta && !endereco.bairroId && endereco.bairroBusca.trim() && (
-          <ul className="absolute inset-x-0 top-full z-10 mt-1 max-h-64 overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg" role="listbox">
-            {sugestoes.map((b) => (
-              <li key={b.id}>
-                <button type="button" onMouseDown={aoEscolher(dadosDoBairro(b))} className="w-full px-3 py-2 text-left text-sm hover:bg-marca/10">
-                  {b.nome}
-                </button>
-              </li>
-            ))}
-            <li className={sugestoes.length ? 'border-t border-gray-100' : ''}>
-              <button
-                type="button"
-                onMouseDown={aoEscolher({ bairroId: BAIRRO_NOVO, bairro: endereco.bairroBusca.trim(), taxa: null, situacao: 'novo' })}
-                className="w-full px-3 py-2 text-left text-sm text-gray-500 hover:bg-gray-50"
-              >
-                Meu bairro não está na lista: usar “{endereco.bairroBusca.trim()}”
-              </button>
-            </li>
-          </ul>
-        )}
-      </div>
+            {listaAberta && !endereco.bairroId && endereco.bairroBusca.trim() && (
+              <ul className="absolute inset-x-0 top-full z-10 mt-1 max-h-64 overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg" role="listbox">
+                {sugestoes.map((b) => (
+                  <li key={b.id}>
+                    <button type="button" onMouseDown={aoEscolher(dadosDoBairro(b))} className="w-full px-3 py-2 text-left text-sm hover:bg-marca/10">
+                      {b.nome}
+                    </button>
+                  </li>
+                ))}
+                <li className={sugestoes.length ? 'border-t border-gray-100' : ''}>
+                  <button
+                    type="button"
+                    onMouseDown={aoEscolher({ bairroId: BAIRRO_NOVO, bairro: endereco.bairroBusca.trim(), taxa: null, situacao: 'novo' })}
+                    className="w-full px-3 py-2 text-left text-sm text-gray-500 hover:bg-gray-50"
+                  >
+                    Meu bairro não está na lista: usar “{endereco.bairroBusca.trim()}”
+                  </button>
+                </li>
+              </ul>
+            )}
+          </div>
+        </>
+      )}
 
       {(divergente || endereco.situacao) && (
         <div className="md:col-span-6">
@@ -265,16 +365,45 @@ export default function EtapaEndereco({ endereco, setEndereco, bairros }) {
         </div>
       )}
 
-      <Campo label="Rua / Avenida:" className="md:col-span-3">
-        <input id="campo-endereco" className={input} value={endereco.endereco} onChange={alterar('endereco')} placeholder="Nome da sua rua" autoComplete="address-line1" />
-        {endereco.localizacao && <span className="text-xs font-normal text-gray-500">Preenchida pela localização. Se sua rua for outra, pode corrigir.</span>}
-      </Campo>
-      <Campo label="Número:">
-        <input id="campo-numero" className={input} value={endereco.numero} onChange={alterar('numero')} inputMode="numeric" />
-      </Campo>
-      <Campo label="Complemento:" className="md:col-span-2">
-        <input className={input} value={endereco.complemento} onChange={alterar('complemento')} placeholder="Apto, bloco, referência" />
-      </Campo>
+      {mostrarFormulario && (
+        <>
+          <Campo label="Rua / Avenida:" className="md:col-span-3">
+            <input id="campo-endereco" className={input} value={endereco.endereco} onChange={alterar('endereco')} placeholder="Nome da sua rua" autoComplete="address-line1" />
+            {endereco.localizacao && <span className="text-xs font-normal text-gray-500">Preenchida pela localização. Se sua rua for outra, pode corrigir.</span>}
+          </Campo>
+          <Campo label="Número:">
+            <input id="campo-numero" className={input} value={endereco.numero} onChange={alterar('numero')} inputMode="numeric" />
+          </Campo>
+          <Campo label="Complemento:" className="md:col-span-2">
+            <input className={input} value={endereco.complemento} onChange={alterar('complemento')} placeholder="Apto, bloco, referência" />
+          </Campo>
+
+          {/* salvo ao enviar o pedido (ModalCarrinho) */}
+          {cliente && (
+            <div className="flex flex-wrap items-center gap-3 rounded-xl bg-white p-3 text-sm ring-1 ring-gray-100 md:col-span-6">
+              <label className="flex flex-1 cursor-pointer items-center gap-2 font-semibold">
+                <input
+                  type="checkbox"
+                  checked={endereco.salvarEndereco}
+                  onChange={(e) => setEndereco({ ...endereco, salvarEndereco: e.target.checked })}
+                  className="size-4 accent-[var(--cor-marca)]"
+                />
+                Salvar este endereço na minha conta
+              </label>
+              {endereco.salvarEndereco && (
+                <input
+                  className={`${input} w-40`}
+                  value={endereco.apelido}
+                  onChange={alterar('apelido')}
+                  maxLength={30}
+                  placeholder="Casa, Trabalho..."
+                  aria-label="Nome do endereço"
+                />
+              )}
+            </div>
+          )}
+        </>
+      )}
 
       <Campo label="Pagamento:" className="md:col-span-3">
         <select className={input} value={endereco.pagamento} onChange={alterar('pagamento')}>

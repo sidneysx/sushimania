@@ -1,6 +1,8 @@
-import { FaBagShopping, FaChevronRight, FaMagnifyingGlass, FaPhone } from 'react-icons/fa6'
+import { Link } from 'react-router-dom'
+import { FaBagShopping, FaChevronRight, FaMagnifyingGlass, FaPhone, FaUser } from 'react-icons/fa6'
 import { useCarrinho } from '../../context/CarrinhoContext'
 import { useConfig } from '../../context/ConfigContext'
+import { useConta } from '../../context/ContaContext'
 import { soNumeros } from '../../lib/config'
 import { useLojaAberta } from '../../lib/useLojaAberta'
 import { RedesSociais } from './Footer'
@@ -14,9 +16,11 @@ const irParaBusca = () => {
   campo.focus({ preventScroll: true })
 }
 
+const classeRedondo = 'relative grid size-11 place-items-center rounded-full bg-white/90 text-gray-800 shadow-md backdrop-blur'
+
 function BotaoRedondo({ children, ...props }) {
   return (
-    <button type="button" className="relative grid size-11 place-items-center rounded-full bg-white/90 text-gray-800 shadow-md backdrop-blur" {...props}>
+    <button type="button" className={classeRedondo} {...props}>
       {children}
     </button>
   )
@@ -26,6 +30,7 @@ function BotaoRedondo({ children, ...props }) {
 export default function TopoLoja() {
   const { config } = useConfig()
   const { totais, setAberto } = useCarrinho()
+  const { cliente } = useConta()
   const { aberta, fecha, abreQuando, hoje } = useLojaAberta()
 
   const mapa = config.endereco && `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(config.endereco)}`
@@ -48,6 +53,9 @@ export default function TopoLoja() {
               </span>
             )}
           </BotaoRedondo>
+          <Link to="/conta" className={classeRedondo} aria-label={cliente ? 'Minha conta' : 'Entrar ou criar conta'}>
+            {cliente ? <span className="font-bold text-marca">{cliente.nome.charAt(0).toUpperCase()}</span> : <FaUser />}
+          </Link>
         </div>
       </div>
 
