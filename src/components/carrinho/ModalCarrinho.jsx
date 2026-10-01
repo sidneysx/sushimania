@@ -5,6 +5,8 @@ import { useToast } from '../../context/ToastContext'
 import { useConfig } from '../../context/ConfigContext'
 import { formatarPreco } from '../../lib/formatar'
 import { usePersistente } from '../../lib/usePersistente'
+import { textoFechado } from '../../lib/horario'
+import { useLojaAberta } from '../../lib/useLojaAberta'
 import { linkWhatsapp } from '../../lib/config'
 import { listarBairros } from '../../services/bairros'
 import { gerarCodigo, registrarPedido } from '../../services/pedidos'
@@ -73,6 +75,8 @@ export default function ModalCarrinho() {
   const { itens, totais, aberto, setAberto, limpar } = useCarrinho()
   const { config } = useConfig()
   const toast = useToast()
+  // fora do horário: o cliente vê tudo e monta o carrinho, mas não avança nem envia
+  const { aberta, abreQuando } = useLojaAberta()
   // etapa e dados de entrega sobrevivem a atualizar a página; só são limpos ao enviar o pedido
   const [etapa, setEtapa] = usePersistente('carrinho-etapa', 1, 'sessao')
   const [enderecoSalvo, setEndereco] = usePersistente('carrinho-endereco', ENDERECO_VAZIO)
@@ -101,11 +105,13 @@ export default function ModalCarrinho() {
   const voltar = () => setEtapa(etapaAtual - 1)
 
   const avancarParaEndereco = () => {
+    if (!aberta) return toast(textoFechado(abreQuando))
     if (itens.length === 0) return toast('Seu carrinho está vazio.')
     setEtapa(2)
   }
 
   const avancarParaResumo = () => {
+    if (!aberta) return toast(textoFechado(abreQuando))
     const erro = validarEndereco(endereco, bairros)
     if (erro) {
       toast(erro.mensagem)
@@ -123,6 +129,7 @@ export default function ModalCarrinho() {
   const total = totais.subtotal + (endereco.taxa ?? 0)
 
   const enviarPedido = () => {
+    if (!aberta) return toast(textoFechado(abreQuando))
     const codigo = gerarCodigo()
     // Abre o WhatsApp primeiro: se esperar o banco, o navegador bloqueia o pop-up.
     window.open(linkWhatsapp(config.whatsapp, montarMensagem(codigo, itens, endereco, totais.subtotal)), '_blank', 'noopener')
@@ -187,6 +194,11 @@ export default function ModalCarrinho() {
 
       <div className="border-t border-gray-100 bg-white">
         <div className="container mx-auto flex flex-col items-end gap-4 px-4 py-4">
+          {!aberta && (
+            <p className="w-full rounded-xl bg-amber-50 px-3 py-2 text-center text-sm font-semibold text-amber-900 ring-1 ring-amber-200">
+              {textoFechado(abreQuando)} Seu carrinho fica salvo até lá.
+            </p>
+          )}
           {/* na etapa 2 o cliente ainda está preenchendo a entrega: valores só na 1 e na revisão (3) */}
           {etapaAtual !== 2 && (
             <div className="text-right">
@@ -209,17 +221,17 @@ export default function ModalCarrinho() {
               </button>
             )}
             {etapaAtual === 1 && (
-              <button onClick={avancarParaEndereco} className="rounded-full bg-marca px-6 py-2 font-semibold text-white">
+              <button onClick={avancarParaEndereco} className={`rounded-full bg-marca px-6 py-2 font-semibold text-white ${aberta ? '' : 'opacity-50'}`}>
                 Continuar
               </button>
             )}
             {etapaAtual === 2 && (
-              <button onClick={avancarParaResumo} className="rounded-full bg-marca px-6 py-2 font-semibold text-white">
+              <button onClick={avancarParaResumo} className={`rounded-full bg-marca px-6 py-2 font-semibold text-white ${aberta ? '' : 'opacity-50'}`}>
                 Revisar pedido
               </button>
             )}
             {etapaAtual === 3 && (
-              <button onClick={enviarPedido} className="rounded-full bg-marca px-6 py-2 font-semibold text-white">
+              <button onClick={enviarPedido} className={`rounded-full bg-marca px-6 py-2 font-semibold text-white ${aberta ? '' : 'opacity-50'}`}>
                 Enviar pedido
               </button>
             )}

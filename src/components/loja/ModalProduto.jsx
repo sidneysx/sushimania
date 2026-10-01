@@ -3,6 +3,8 @@ import { FaMinus, FaPlus, FaXmark, FaImage } from 'react-icons/fa6'
 import { useCarrinho } from '../../context/CarrinhoContext'
 import { useToast } from '../../context/ToastContext'
 import { formatarPreco } from '../../lib/formatar'
+import { textoFechado } from '../../lib/horario'
+import { useLojaAberta } from '../../lib/useLojaAberta'
 
 const LIMITE_OBS = 140
 
@@ -13,6 +15,7 @@ export default function ModalProduto({ produto, fechar }) {
   const [obs, setObs] = useState('')
   const { adicionar } = useCarrinho()
   const toast = useToast()
+  const { aberta, abreQuando } = useLojaAberta()
 
   // Esc fecha e a página de trás não rola enquanto o card está aberto
   useEffect(() => {
@@ -79,6 +82,11 @@ export default function ModalProduto({ produto, fechar }) {
           </div>
         </div>
 
+        {!aberta && (
+          <p className="border-t border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs font-semibold text-amber-900">
+            {textoFechado(abreQuando)} Você pode montar o carrinho e enviar quando abrirmos.
+          </p>
+        )}
         <div className="flex items-center gap-3 border-t border-gray-100 p-4">
           <div className="flex items-center gap-1 rounded-full border border-gray-200">
             <button onClick={() => setQntd(Math.max(1, qntd - 1))} className="rounded-full p-3 disabled:opacity-30" disabled={qntd === 1} aria-label="Diminuir">

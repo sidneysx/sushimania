@@ -1,6 +1,8 @@
-import { FaPhone, FaInstagram, FaFacebookF, FaWhatsapp } from 'react-icons/fa6'
+import { FaClock, FaPhone, FaInstagram, FaFacebookF, FaWhatsapp } from 'react-icons/fa6'
 import { useConfig } from '../../context/ConfigContext'
 import { linkSeguro, linkWhatsapp, soNumeros } from '../../lib/config'
+import { textoFechado } from '../../lib/horario'
+import { useLojaAberta } from '../../lib/useLojaAberta'
 
 export function RedesSociais({ className = 'bg-white shadow-sm' }) {
   const { config } = useConfig()
@@ -23,10 +25,17 @@ export function RedesSociais({ className = 'bg-white shadow-sm' }) {
 
 export default function Banner() {
   const { config } = useConfig()
+  const { aberta, abreQuando } = useLojaAberta()
 
   return (
     <section className="container mx-auto grid min-h-[calc(100svh-4.5rem)] content-center items-center gap-10 px-4 py-10 md:min-h-0 md:grid-cols-2 md:py-20">
       <div>
+        {!aberta && (
+          <p className="mb-6 flex items-center gap-2 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900 ring-1 ring-amber-200">
+            <FaClock className="shrink-0 text-amber-500" />
+            {textoFechado(abreQuando)} Você já pode ver o cardápio.
+          </p>
+        )}
         <h1 className="text-3xl font-extrabold leading-tight sm:text-4xl md:text-5xl">
           {config.banner_titulo} {config.banner_destaque && <span className="text-marca">{config.banner_destaque}</span>}
         </h1>

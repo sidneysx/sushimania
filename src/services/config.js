@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { HORARIOS_PADRAO } from '../lib/horario'
 
 // Usado enquanto o banco não responde (ou se a tabela config ainda não existir)
 export const CONFIG_PADRAO = {
@@ -14,6 +15,7 @@ export const CONFIG_PADRAO = {
   endereco: '',
   instagram: '',
   facebook: '',
+  horarios: HORARIOS_PADRAO,
 }
 
 export async function obterConfig() {

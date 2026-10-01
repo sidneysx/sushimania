@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { ImagePlus, Loader2, Palette, Phone, Sparkles, Trash2 } from 'lucide-react'
+import { Clock, ImagePlus, Loader2, Palette, Phone, Sparkles, Trash2 } from 'lucide-react'
 import { useConfig } from '../../context/ConfigContext'
 import { CONFIG_PADRAO, salvarConfig } from '../../services/config'
+import { DIAS, HORARIOS_PADRAO, situacaoDaLoja, textoFechado } from '../../lib/horario'
 import { enviarImagem, removerImagem } from '../../services/produtos'
 import { usePainel } from './PainelContext'
 import { Botao, Campo, Cartao, classeInput } from './ui'
@@ -31,6 +32,7 @@ function Formulario({ config }) {
     endereco: config.endereco ?? '',
     instagram: config.instagram ?? '',
     facebook: config.facebook ?? '',
+    horarios: config.horarios.map((h) => ({ ...h })),
   })
   const [enviando, setEnviando] = useState(null) // 'logo_url' | 'destaque_url'
   const [salvando, setSalvando] = useState(false)
@@ -61,6 +63,9 @@ function Formulario({ config }) {
       if (form[campo].trim() && !/^https:\/\//i.test(form[campo].trim())) return avisar(`O link do ${rotulo} precisa começar com https://`, 'erro')
     }
 
+    const horarioInvalido = form.horarios.findIndex((h) => h.aberto && (!h.abre || !h.fecha || h.abre === h.fecha))
+    if (horarioInvalido >= 0) return avisar(`Confira o horário de ${DIAS[horarioInvalido]}: abre e fecha não podem ser iguais`, 'erro')
+
     setSalvando(true)
     try {
       await salvarConfig({
@@ -76,6 +81,7 @@ function Formulario({ config }) {
         endereco: form.endereco.trim() || null,
         instagram: form.instagram.trim() || null,
         facebook: form.facebook.trim() || null,
+        horarios: form.horarios,
       })
       // Apaga do Storage as imagens que foram trocadas ou removidas
       for (const campo of ['logo_url', 'destaque_url']) {
@@ -207,12 +213,71 @@ function Formulario({ config }) {
         </div>
       </Cartao>
 
+      <Horarios horarios={form.horarios} setHorarios={(horarios) => setForm({ ...form, horarios })} />
+
       <div className="sticky bottom-4 flex justify-end">
         <Botao type="submit" variante="marca" carregando={salvando} disabled={!!enviando} className="h-12 px-6 shadow-lg">
           Salvar configurações
         </Botao>
       </div>
     </form>
+  )
+}
+
+// Segunda primeiro, domingo por último (como a semana costuma ser lida)
+const ORDEM_DIAS = [1, 2, 3, 4, 5, 6, 0]
+const TODOS_OS_DIAS_24H = DIAS.map(() => ({ aberto: true, abre: '00:00', fecha: '23:59' }))
+
+function Horarios({ horarios, setHorarios }) {
+  const alterarDia = (dia, campos) => setHorarios(horarios.map((h, i) => (i === dia ? { ...h, ...campos } : h)))
+  const { aberta, abreQuando } = situacaoDaLoja(horarios)
+
+  return (
+    <Cartao className="space-y-5">
+      <Titulo
+        icone={Clock}
+        titulo="Horário de funcionamento"
+        descricao="Fora do horário o site mostra o cardápio, mas o cliente não consegue enviar o pedido. Se fechar depois da meia-noite, é só colocar o horário (ex.: 18:00 às 02:00)."
+      />
+
+      <p className={`rounded-xl px-4 py-2.5 text-sm font-medium ${aberta ? 'bg-green-50 text-green-800' : 'bg-amber-50 text-amber-900'}`}>
+        Com este horário, agora a loja estaria: <b>{aberta ? 'aberta' : 'fechada'}</b>
+        {!aberta && ` (${textoFechado(abreQuando)})`}
+      </p>
+
+      <div className="divide-y divide-neutral-100 rounded-2xl ring-1 ring-neutral-200">
+        {ORDEM_DIAS.map((dia) => {
+          const h = horarios[dia]
+          return (
+            <div key={dia} className="flex flex-wrap items-center gap-3 px-4 py-3">
+              <label className="flex w-36 cursor-pointer items-center gap-2 text-sm font-medium">
+                <input type="checkbox" checked={h.aberto} onChange={(e) => alterarDia(dia, { aberto: e.target.checked })} className="size-4 accent-[var(--cor-marca)]" />
+                {DIAS[dia]}
+              </label>
+              {h.aberto ? (
+                <div className="flex items-center gap-2 text-sm text-neutral-600">
+                  <input type="time" value={h.abre} onChange={(e) => alterarDia(dia, { abre: e.target.value })} className={`${classeInput()} w-32`} aria-label={`${DIAS[dia]}: abre`} />
+                  às
+                  <input type="time" value={h.fecha} onChange={(e) => alterarDia(dia, { fecha: e.target.value })} className={`${classeInput()} w-32`} aria-label={`${DIAS[dia]}: fecha`} />
+                </div>
+              ) : (
+                <span className="text-sm text-neutral-400">Fechado</span>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <Botao type="button" variante="fantasma" onClick={() => setHorarios(HORARIOS_PADRAO.map((h) => ({ ...h })))}>
+          Terça a domingo, 18:30 às 23:00
+        </Botao>
+        <Botao type="button" variante="fantasma" onClick={() => setHorarios(TODOS_OS_DIAS_24H.map((h) => ({ ...h })))}>
+          Aberto 24h todos os dias (para testes)
+        </Botao>
+      </div>
+      <p className="text-xs text-neutral-500">Os botões só preenchem os horários acima: clique em Salvar configurações para valer no site.</p>
+    </Cartao>
   )
 }
 
