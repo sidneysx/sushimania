@@ -23,7 +23,7 @@ import { useToast } from '../context/ToastContext'
 import { supabase } from '../lib/supabase'
 import { linkWhatsapp } from '../lib/config'
 import { formatarPreco } from '../lib/formatar'
-import { listarBairros } from '../services/bairros'
+import { buscarBairros, listarBairros } from '../services/bairros'
 import {
   cadastrar,
   entrar,
@@ -474,10 +474,13 @@ function FormEndereco({ inicial, fechar }) {
   const [bairros, setBairros] = useState([])
   const [form, setForm] = useState({
     ...inicial,
+    // bairro_id: '' = ainda não escolheu na lista; OUTRO = bairro digitado que não está na lista
     bairro_id: inicial.id && !inicial.bairro_id ? OUTRO : String(inicial.bairro_id ?? ''),
+    bairroBusca: inicial.bairro,
     complemento: inicial.complemento ?? '',
   })
   const [salvando, setSalvando] = useState(false)
+  const [listaAberta, setListaAberta] = useState(false)
 
   useEffect(() => {
     listarBairros()
@@ -487,12 +490,25 @@ function FormEndereco({ inicial, fechar }) {
 
   const alterar = (campo) => (e) => setForm({ ...form, [campo]: e.target.value })
 
+  // Bairro igual ao da etapa 2 do pedido: digita o começo e escolhe na lista
+  const digitarBairro = (e) => {
+    setForm({ ...form, bairroBusca: e.target.value, bairro_id: '', bairro: '' })
+    setListaAberta(true)
+  }
+  // onMouseDown (e não onClick): escolhe antes do onBlur do campo fechar a lista
+  const escolherBairro = (id, nome) => (e) => {
+    e.preventDefault()
+    setForm({ ...form, bairro_id: id, bairro: nome, bairroBusca: nome })
+    setListaAberta(false)
+  }
+  const sugestoes = buscarBairros(bairros, form.bairroBusca)
+
   const salvar = async (e) => {
     e.preventDefault()
     const escolhido = bairros.find((b) => String(b.id) === form.bairro_id)
     const bairro = form.bairro_id === OUTRO ? form.bairro.trim() : escolhido?.nome
     if (!form.apelido.trim()) return toast('Dê um nome ao endereço (ex.: Casa).')
-    if (!bairro) return toast('Escolha o bairro.')
+    if (!bairro) return toast('Escolha o seu bairro na lista.')
     if (!form.endereco.trim()) return toast('Informe a rua.')
     if (!form.numero.trim()) return toast('Informe o número.')
 
@@ -523,22 +539,42 @@ function FormEndereco({ inicial, fechar }) {
       <Campo label="Nome do endereço" dica="Ex.: Casa, Trabalho, Casa da mãe">
         <input className={input} value={form.apelido} onChange={alterar('apelido')} maxLength={30} />
       </Campo>
-      <Campo label="Bairro">
-        <select className={input} value={form.bairro_id} onChange={alterar('bairro_id')}>
-          <option value="">Escolha o bairro</option>
-          {bairros.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.nome}
-            </option>
-          ))}
-          <option value={OUTRO}>Meu bairro não está na lista</option>
-        </select>
-      </Campo>
-      {form.bairro_id === OUTRO && (
-        <Campo label="Nome do bairro">
-          <input className={input} value={form.bairro} onChange={alterar('bairro')} maxLength={120} />
+      <div className="relative">
+        <Campo label="Bairro">
+          <input
+            className={input}
+            value={form.bairroBusca}
+            onChange={digitarBairro}
+            onFocus={() => setListaAberta(true)}
+            onBlur={() => setListaAberta(false)}
+            placeholder="Digite o nome do seu bairro ou residencial"
+            autoComplete="off"
+            maxLength={120}
+            role="combobox"
+            aria-expanded={listaAberta}
+          />
         </Campo>
-      )}
+        {listaAberta && !form.bairro_id && form.bairroBusca.trim() && (
+          <ul className="absolute inset-x-0 top-full z-10 mt-1 max-h-64 overflow-y-auto rounded-xl border border-gray-200 bg-white py-1 shadow-lg" role="listbox">
+            {sugestoes.map((b) => (
+              <li key={b.id}>
+                <button type="button" onMouseDown={escolherBairro(String(b.id), b.nome)} className="w-full px-3 py-2 text-left text-sm hover:bg-marca/10">
+                  {b.nome}
+                </button>
+              </li>
+            ))}
+            <li className={sugestoes.length ? 'border-t border-gray-100' : ''}>
+              <button
+                type="button"
+                onMouseDown={escolherBairro(OUTRO, form.bairroBusca.trim())}
+                className="w-full px-3 py-2 text-left text-sm text-gray-500 hover:bg-gray-50"
+              >
+                Meu bairro não está na lista: usar “{form.bairroBusca.trim()}”
+              </button>
+            </li>
+          </ul>
+        )}
+      </div>
       <Campo label="Rua / Avenida">
         <input className={input} value={form.endereco} onChange={alterar('endereco')} maxLength={200} autoComplete="address-line1" />
       </Campo>

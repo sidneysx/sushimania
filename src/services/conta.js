@@ -28,6 +28,8 @@ function traduzir(error) {
   if (/invalid login credentials/i.test(m)) return 'Celular ou senha incorretos.'
   if (/password should be at least/i.test(m)) return 'A senha precisa ter pelo menos 6 caracteres.'
   if (/email not confirmed/i.test(m)) return 'Cadastro ainda não liberado. Fale com a loja pelo WhatsApp.'
+  // provedor Email desligado no Supabase (Authentication > Sign In / Providers > Email)
+  if (/signups? (are )?(disabled|not allowed)|logins are disabled/i.test(m)) return 'Cadastro indisponível no momento. Fale com a loja pelo WhatsApp.'
   return m || 'Algo deu errado. Tente novamente.'
 }
 const falhar = (error) => {
