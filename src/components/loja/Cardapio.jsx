@@ -7,10 +7,21 @@ import { ITENS_POR_PAGINA } from '../../lib/config'
 import { normalizarTexto } from '../../lib/formatar'
 import CardProduto from './CardProduto'
 
+// Aba "Todos": o cardápio inteiro, separado por categoria
+const TODOS = 'todos'
+
+const Grade = ({ produtos }) => (
+  <div className="grid gap-3 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
+    {produtos.map((p) => (
+      <CardProduto key={p.id} produto={p} />
+    ))}
+  </div>
+)
+
 export default function Cardapio() {
   const [categorias, setCategorias] = useState([])
   const [produtos, setProdutos] = useState([])
-  const [ativa, setAtiva] = useState(null)
+  const [ativa, setAtiva] = useState(TODOS)
   const [verTodos, setVerTodos] = useState(false)
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState(false)
@@ -22,7 +33,6 @@ export default function Cardapio() {
       .then(([cats, prods]) => {
         setCategorias(cats)
         setProdutos(prods)
-        setAtiva(cats[0]?.id ?? null)
       })
       .catch((e) => {
         console.error(e)
@@ -42,13 +52,18 @@ export default function Cardapio() {
     if (topo < 0) inicioLista.current.scrollIntoView({ behavior: 'smooth' })
   }
 
-  // Com busca: procura em todas as categorias (nome e descrição); sem busca: só a categoria ativa
+  // Com busca: procura em todas as categorias (nome e descrição); sem busca: a categoria ativa ou todas
   const termo = normalizarTexto(busca)
   const buscando = termo.length > 0
+  const todos = ativa === TODOS && !buscando
   const resultados = buscando
     ? produtos.filter((p) => normalizarTexto(`${p.nome} ${p.descricao ?? ''}`).includes(termo))
-    : produtos.filter((p) => p.categoria_id === ativa)
+    : produtos.filter((p) => todos || p.categoria_id === ativa)
   const visiveis = verTodos || buscando ? resultados : resultados.slice(0, ITENS_POR_PAGINA)
+  // "Todos": um bloco por categoria, na ordem das abas (categoria sem produto não aparece)
+  const grupos = todos
+    ? categorias.map((c) => ({ categoria: c, itens: produtos.filter((p) => p.categoria_id === c.id) })).filter((g) => g.itens.length)
+    : []
 
   return (
     <section id="cardapio" className="py-14 md:py-20">
@@ -86,7 +101,7 @@ export default function Cardapio() {
           </div>
 
           <div className="container mx-auto flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] md:justify-center [&::-webkit-scrollbar]:hidden">
-            {categorias.map((c) => (
+            {[{ id: TODOS, nome: 'Todos' }, ...categorias].map((c) => (
               <button
                 key={c.id}
                 onClick={(e) => selecionar(c.id, e.currentTarget)}
@@ -113,15 +128,25 @@ export default function Cardapio() {
               : `Nenhum item encontrado para "${busca.trim()}". Tente outra palavra.`}
           </p>
         )}
-        <div className="grid gap-3 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
-          {visiveis.map((p) => (
-            <CardProduto key={p.id} produto={p} />
-          ))}
-        </div>
+        {todos ? (
+          <div className="flex flex-col gap-8">
+            {grupos.map(({ categoria, itens }, n) => (
+              <div key={categoria.id}>
+                <h3 className={`mb-4 flex items-center gap-2 text-xl font-extrabold ${n > 0 ? 'border-t border-gray-200 pt-8' : ''}`}>
+                  {categoria.icone && <span>{categoria.icone}</span>}
+                  {categoria.nome}
+                </h3>
+                <Grade produtos={itens} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <Grade produtos={visiveis} />
+        )}
 
-        {!buscando && ativa && resultados.length === 0 && !carregando && <p className="text-center text-gray-500">Nenhum produto nesta categoria.</p>}
+        {!buscando && !todos && resultados.length === 0 && !carregando && <p className="text-center text-gray-500">Nenhum produto nesta categoria.</p>}
 
-        {!buscando && !verTodos && resultados.length > ITENS_POR_PAGINA && (
+        {!buscando && !todos && !verTodos && resultados.length > ITENS_POR_PAGINA && (
           <div className="mt-10 text-center">
             <button onClick={() => setVerTodos(true)} className="rounded-full bg-white px-6 py-2 font-semibold shadow-sm hover:text-marca">
               Ver mais
