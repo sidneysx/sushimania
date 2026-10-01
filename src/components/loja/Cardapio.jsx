@@ -100,7 +100,7 @@ export default function Cardapio() {
   }
 
   return (
-    <section id="cardapio" className="bg-white pb-28">
+    <section id="cardapio" className="bg-white pb-10">
       {carregando && <p className="py-10 text-center text-gray-500">Carregando cardápio...</p>}
       {erro && <p className="py-10 text-center text-red-600">Não foi possível carregar o cardápio.</p>}
       {!carregando && !erro && secoes.length === 0 && <p className="py-10 text-center text-gray-500">Nenhum item disponível no momento.</p>}

@@ -28,16 +28,22 @@ export default function Footer() {
   const { config } = useConfig()
 
   return (
-    <footer className="bg-white py-8">
+    <footer className="border-t border-gray-100 bg-white pt-8 pb-28">
       <div className="container mx-auto flex flex-col items-center justify-between gap-4 px-4 md:flex-row">
         {config.logo_url ? (
           <img src={config.logo_url} alt={config.nome} className="h-10 w-auto object-contain" />
         ) : (
           <span className="text-2xl font-extrabold text-marca">{config.nome}</span>
         )}
-        <p className="text-sm text-gray-600">
-          <b>{config.nome}</b> &copy; {ANO} Todos os direitos reservados
-        </p>
+        <div className="text-center md:text-left">
+          <p className="text-sm text-gray-600">
+            <b>{config.nome}</b> &copy; {ANO} Todos os direitos reservados
+          </p>
+          {/* versão vem do package.json no build (vite.config.js); o commit aparece ao passar o mouse */}
+          <p className="mt-0.5 text-[11px] tracking-wide text-gray-400" title={__COMMIT__ ? `build ${__COMMIT__}` : undefined}>
+            v{__VERSAO__}
+          </p>
+        </div>
         <RedesSociais className="bg-gray-100 p-3 text-lg" />
       </div>
     </footer>
