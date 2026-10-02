@@ -6,6 +6,8 @@ import {
   FaBowlFood,
   FaCircleCheck,
   FaCircleXmark,
+  FaEye,
+  FaEyeSlash,
   FaGoogle,
   FaHouse,
   FaLocationDot,
@@ -52,6 +54,23 @@ function Campo({ label, children, dica }) {
   )
 }
 
+// campo de senha com o "olhinho" para mostrar/esconder o que foi digitado
+function InputSenha({ visivel, alternar, ...props }) {
+  return (
+    <div className="relative">
+      <input {...props} type={visivel ? 'text' : 'password'} className={`${input} pr-11`} />
+      <button
+        type="button"
+        onClick={alternar}
+        className="absolute inset-y-0 right-0 grid w-11 place-items-center text-gray-400 hover:text-gray-600"
+        aria-label={visivel ? 'Esconder senha' : 'Mostrar senha'}
+      >
+        {visivel ? <FaEyeSlash /> : <FaEye />}
+      </button>
+    </div>
+  )
+}
+
 export default function Conta() {
   const { config } = useConfig()
   const { usuario, cliente, carregando } = useConta()
@@ -93,7 +112,8 @@ function Acesso() {
   const { recarregar } = useConta()
   const toast = useToast()
   const [modo, setModo] = useState('entrar') // 'entrar' | 'cadastrar'
-  const [form, setForm] = useState({ nome: '', telefone: '', senha: '' })
+  const [form, setForm] = useState({ nome: '', telefone: '', senha: '', confirmar: '' })
+  const [verSenha, setVerSenha] = useState(false)
   const [enviando, setEnviando] = useState(false)
 
   const alterar = (campo) => (e) => setForm({ ...form, [campo]: campo === 'telefone' ? mascaraTelefone(e.target.value) : e.target.value })
@@ -104,6 +124,7 @@ function Acesso() {
     if (modo === 'cadastrar' && !form.nome.trim()) return toast('Informe o seu nome.')
     if (!telefoneValido(telefone)) return toast('Informe o celular com DDD.')
     if (form.senha.length < 6) return toast('A senha precisa ter pelo menos 6 caracteres.')
+    if (modo === 'cadastrar' && form.senha !== form.confirmar) return toast('As senhas não conferem.')
 
     setEnviando(true)
     try {
@@ -163,14 +184,19 @@ function Acesso() {
           <input className={input} value={form.telefone} onChange={alterar('telefone')} inputMode="tel" autoComplete="tel-national" placeholder="(99) 98123-4567" />
         </Campo>
         <Campo label="Senha" dica={modo === 'cadastrar' ? 'Pelo menos 6 caracteres' : undefined}>
-          <input
-            className={input}
-            type="password"
+          <InputSenha
+            visivel={verSenha}
+            alternar={() => setVerSenha(!verSenha)}
             value={form.senha}
             onChange={alterar('senha')}
             autoComplete={modo === 'cadastrar' ? 'new-password' : 'current-password'}
           />
         </Campo>
+        {modo === 'cadastrar' && (
+          <Campo label="Confirmar senha">
+            <InputSenha visivel={verSenha} alternar={() => setVerSenha(!verSenha)} value={form.confirmar} onChange={alterar('confirmar')} autoComplete="new-password" />
+          </Campo>
+        )}
         <button type="submit" disabled={enviando} className={botaoMarca}>
           {enviando ? 'Aguarde...' : modo === 'entrar' ? 'Entrar' : 'Criar conta'}
         </button>
@@ -607,6 +633,7 @@ function MeusDados() {
   const toast = useToast()
   const [nome, setNome] = useState(cliente.nome)
   const [senha, setSenha] = useState('')
+  const [verSenha, setVerSenha] = useState(false)
   const [salvando, setSalvando] = useState(false)
   // conta do Google não tem senha aqui
   const comSenha = usuario.app_metadata?.provider === 'email'
@@ -643,7 +670,7 @@ function MeusDados() {
       </Campo>
       {comSenha && (
         <Campo label="Nova senha" dica="Deixe em branco para manter a senha atual">
-          <input className={input} type="password" value={senha} onChange={(e) => setSenha(e.target.value)} autoComplete="new-password" />
+          <InputSenha visivel={verSenha} alternar={() => setVerSenha(!verSenha)} value={senha} onChange={(e) => setSenha(e.target.value)} autoComplete="new-password" />
         </Campo>
       )}
       <button type="submit" disabled={salvando} className={botaoMarca}>

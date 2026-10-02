@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { ExternalLink, Loader2, Menu } from 'lucide-react'
+import { ExternalLink, Eye, EyeOff, Loader2, Menu } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useConfig } from '../../context/ConfigContext'
 import { supabase } from '../../lib/supabase'
@@ -191,15 +191,33 @@ export function TelaCarregando() {
   )
 }
 
+function InputSenha({ visivel, alternar, erro, ...props }) {
+  return (
+    <span className="relative block">
+      <input {...props} type={visivel ? 'text' : 'password'} autoComplete="new-password" className={`${classeInput(erro)} pr-11`} />
+      <button
+        type="button"
+        onClick={alternar}
+        aria-label={visivel ? 'Esconder senha' : 'Mostrar senha'}
+        className="absolute right-1 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-lg text-neutral-400 hover:text-neutral-700"
+      >
+        {visivel ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+      </button>
+    </span>
+  )
+}
+
 function TrocarSenha({ aberto, onFechar, avisar }) {
   const [senha, setSenha] = useState('')
   const [repetir, setRepetir] = useState('')
+  const [verSenha, setVerSenha] = useState(false)
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
 
   const fechar = () => {
     setSenha('')
     setRepetir('')
+    setVerSenha(false)
     setErro('')
     onFechar()
   }
@@ -220,10 +238,10 @@ function TrocarSenha({ aberto, onFechar, avisar }) {
     <Modal aberto={aberto} onFechar={fechar} titulo="Alterar senha">
       <form onSubmit={salvar} className="space-y-4">
         <Campo rotulo="Nova senha" dica="Mínimo de 8 caracteres">
-          <input type="password" autoComplete="new-password" value={senha} onChange={(e) => setSenha(e.target.value)} className={classeInput()} />
+          <InputSenha visivel={verSenha} alternar={() => setVerSenha((v) => !v)} value={senha} onChange={(e) => setSenha(e.target.value)} />
         </Campo>
         <Campo rotulo="Repita a nova senha" erro={erro}>
-          <input type="password" autoComplete="new-password" value={repetir} onChange={(e) => setRepetir(e.target.value)} className={classeInput(!!erro)} />
+          <InputSenha visivel={verSenha} alternar={() => setVerSenha((v) => !v)} value={repetir} onChange={(e) => setRepetir(e.target.value)} erro={!!erro} />
         </Campo>
         <div className="flex justify-end gap-2 pt-2">
           <Botao type="button" variante="secundario" onClick={fechar}>
