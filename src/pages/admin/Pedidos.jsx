@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'motion/react'
-import { AlertTriangle, Bike, ChevronDown, CreditCard, MapPin, Phone, Printer, Search, ShoppingBag, Trash2 } from 'lucide-react'
+import { AlertTriangle, Bike, ChevronDown, CreditCard, MapPin, Motorbike, Phone, Printer, Search, ShoppingBag, Trash2 } from 'lucide-react'
 import { FaWhatsapp } from 'react-icons/fa6'
 import { useConfig } from '../../context/ConfigContext'
 import { alterarStatusPedido, excluirPedido } from '../../services/pedidos'
 import { mascaraTelefone } from '../../services/conta'
+import { atribuirMotoboy } from '../../services/motoboys'
 import { linkWhatsapp } from '../../lib/config'
 import { imprimirComanda, linkMotoboy } from './comanda'
 import { usePainel } from './PainelContext'
@@ -14,7 +15,7 @@ import { Busca, Confirmar, dinheiro, formatarData, Miniatura, STATUS, StatusPedi
 const FILTROS = [null, ...Object.keys(STATUS)]
 
 export default function Pedidos() {
-  const { pedidos, produtos, recarregar, avisar } = usePainel()
+  const { pedidos, produtos, motoboys, recarregar, avisar } = usePainel()
   const { config } = useConfig()
   const [filtro, setFiltro] = useState(null)
   const [busca, setBusca] = useState('')
@@ -48,6 +49,18 @@ export default function Pedidos() {
       await alterarStatusPedido(pedido.id, status)
       await recarregar()
       avisar(`Pedido #${pedido.codigo}: ${STATUS[status].rotulo.toLowerCase()}`)
+    } catch (e) {
+      avisar(`Não foi possível alterar: ${e.message}`, 'erro')
+    }
+  }
+
+  const nomesMotoboys = useMemo(() => Object.fromEntries(motoboys.map((m) => [m.user_id, m.nome])), [motoboys])
+
+  const mudarMotoboy = async (pedido, motoboyId) => {
+    try {
+      await atribuirMotoboy(pedido.id, motoboyId || null)
+      await recarregar()
+      avisar(motoboyId ? `Pedido #${pedido.codigo} com ${nomesMotoboys[motoboyId]}` : `Pedido #${pedido.codigo} sem motoboy`)
     } catch (e) {
       avisar(`Não foi possível alterar: ${e.message}`, 'erro')
     }
@@ -122,6 +135,11 @@ export default function Pedidos() {
                       <p className="text-xs text-neutral-500">
                         {formatarData(p.criado_em)} · {qtdItens} {qtdItens === 1 ? 'item' : 'itens'} · {p.bairro}
                       </p>
+                      {p.motoboy_id && (
+                        <p className="mt-1 mr-1 inline-flex items-center gap-1 rounded-full bg-neutral-950 px-2 py-0.5 text-[11px] font-semibold text-white">
+                          <Motorbike className="size-3 text-marca" /> {nomesMotoboys[p.motoboy_id] ?? 'Motoboy'}
+                        </p>
+                      )}
                       {p.aviso && (
                         <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 ring-1 ring-amber-200">
                           <AlertTriangle className="size-3" /> {p.aviso}
@@ -233,6 +251,25 @@ export default function Pedidos() {
                               Bairro sem taxa cadastrada. Combine a entrega pelo WhatsApp e cadastre o bairro em “Bairros e taxas”.
                             </p>
                           )}
+                          {motoboys.length > 0 && (
+                            <label className="flex items-center gap-2">
+                              <Motorbike className="size-4 shrink-0 text-marca" />
+                              <select
+                                value={p.motoboy_id ?? ''}
+                                onChange={(e) => mudarMotoboy(p, e.target.value)}
+                                className="h-9 flex-1 rounded-lg border border-neutral-200 bg-white px-2 text-sm outline-none focus:border-marca"
+                              >
+                                <option value="">Motoboy da casa: nenhum</option>
+                                {motoboys
+                                  .filter((m) => m.ativo || m.user_id === p.motoboy_id)
+                                  .map((m) => (
+                                    <option key={m.user_id} value={m.user_id}>
+                                      {m.nome}
+                                    </option>
+                                  ))}
+                              </select>
+                            </label>
+                          )}
                           <div className="flex flex-wrap gap-2 pt-1">
                             <a
                               href={linkMotoboy(p)}
@@ -240,7 +277,7 @@ export default function Pedidos() {
                               rel="noreferrer"
                               className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-2 text-xs font-semibold text-white hover:bg-green-700"
                             >
-                              <FaWhatsapp className="size-4" /> Enviar para motoboy
+                              <FaWhatsapp className="size-4" /> Enviar p/ motoboy de fora
                             </a>
                             <button
                               onClick={() => imprimirComanda(p, config.nome)}

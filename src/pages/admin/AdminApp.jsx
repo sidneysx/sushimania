@@ -8,6 +8,7 @@ import Pedidos from './Pedidos'
 import Produtos from './Produtos'
 import Categorias from './Categorias'
 import Bairros from './Bairros'
+import Motoboys from './Motoboys'
 import Configuracoes from './Configuracoes'
 
 export default function AdminApp() {
@@ -29,6 +30,7 @@ export default function AdminApp() {
           <Route path="produtos" element={<Produtos />} />
           <Route path="categorias" element={<Categorias />} />
           <Route path="bairros" element={<Bairros />} />
+          <Route path="motoboys" element={<Motoboys />} />
           <Route path="configuracoes" element={<Configuracoes />} />
           <Route path="*" element={<Navigate to="dashboard" replace />} />
         </Route>

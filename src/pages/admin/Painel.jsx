@@ -8,6 +8,7 @@ import { listarProdutos } from '../../services/produtos'
 import { listarCategorias } from '../../services/categorias'
 import { listarPedidos } from '../../services/pedidos'
 import { listarBairros } from '../../services/bairros'
+import { listarMotoboys } from '../../services/motoboys'
 import { PainelContext } from './PainelContext'
 import Sidebar from './Sidebar'
 import { useAlertaPedidos } from './useAlertaPedidos'
@@ -20,6 +21,7 @@ const TITULOS = {
   categorias: 'Categorias',
   pedidos: 'Pedidos',
   bairros: 'Bairros e taxas',
+  motoboys: 'Motoboys',
   configuracoes: 'Configurações',
 }
 
@@ -37,7 +39,7 @@ export default function Painel() {
   const local = useLocation()
   const navegar = useNavigate()
 
-  const [dados, setDados] = useState({ produtos: [], categorias: [], pedidos: [], bairros: [] })
+  const [dados, setDados] = useState({ produtos: [], categorias: [], pedidos: [], bairros: [], motoboys: [] })
   const [carregando, setCarregando] = useState(true)
   const [aviso, setAviso] = useState(null)
   const [menuMobile, setMenuMobile] = useState(false)
@@ -52,7 +54,7 @@ export default function Painel() {
 
   // Carrega tudo de uma vez; se uma tabela falhar, as outras continuam aparecendo
   const recarregar = useCallback(async () => {
-    const fontes = { produtos: listarProdutos, categorias: listarCategorias, pedidos: listarPedidos, bairros: listarBairros }
+    const fontes = { produtos: listarProdutos, categorias: listarCategorias, pedidos: listarPedidos, bairros: listarBairros, motoboys: listarMotoboys }
     const resultados = await Promise.allSettled(Object.values(fontes).map((f) => f()))
     const novos = {}
     Object.keys(fontes).forEach((chave, i) => {
@@ -100,6 +102,7 @@ export default function Painel() {
       produtos: dados.produtos.length,
       categorias: dados.categorias.length,
       bairros: dados.bairros.length,
+      motoboys: dados.motoboys.length,
       novos: qtdNovos,
     }),
     [dados, qtdNovos],

@@ -32,7 +32,7 @@ function traduzir(error) {
   if (/signups? (are )?(disabled|not allowed)|logins are disabled/i.test(m)) return 'Cadastro indisponível no momento. Fale com a loja pelo WhatsApp.'
   return m || 'Algo deu errado. Tente novamente.'
 }
-const falhar = (error) => {
+export const falhar = (error) => {
   throw new Error(traduzir(error))
 }
 

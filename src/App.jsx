@@ -9,6 +9,7 @@ import Loja from './pages/Loja'
 const AdminApp = lazy(() => import('./pages/admin/AdminApp'))
 const Conta = lazy(() => import('./pages/Conta'))
 const Privacidade = lazy(() => import('./pages/Privacidade'))
+const Entregador = lazy(() => import('./pages/entregador/Entregador'))
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
                 <Route path="/conta" element={<Conta />} />
                 <Route path="/privacidade" element={<Privacidade />} />
                 <Route path="/admin/*" element={<AdminApp />} />
+                <Route path="/entregador" element={<Entregador />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Suspense>
