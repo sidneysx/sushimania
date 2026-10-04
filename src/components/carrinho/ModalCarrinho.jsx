@@ -12,7 +12,7 @@ import { useTravarRolagem } from '../../lib/useTravarRolagem'
 import { linkWhatsapp } from '../../lib/config'
 import { listarBairros } from '../../services/bairros'
 import { gerarCodigo, registrarPedido } from '../../services/pedidos'
-import { salvarEndereco } from '../../services/conta'
+import { salvarEndereco, soTelefone } from '../../services/conta'
 import EtapaItens from './EtapaItens'
 import EtapaEndereco, { BAIRRO_NOVO, DADOS_DO_BAIRRO, DADOS_DO_CEP, PAGAMENTOS, bairroDoPedido, validarEndereco } from './EtapaEndereco'
 import EtapaResumo from './EtapaResumo'
@@ -22,6 +22,7 @@ const TITULOS = { 1: 'Seu carrinho:', 2: 'Seus dados e entrega:', 3: 'Resumo do 
 // taxa: null enquanto o bairro não foi escolhido ou quando ele não é atendido (a combinar)
 const ENDERECO_VAZIO = {
   nome: '',
+  telefone: '', // com máscara: (99) 98123-4567
   pagamento: PAGAMENTOS[0],
   troco: '',
   cep: '',
@@ -57,6 +58,7 @@ function montarMensagem(codigo, itens, e, subtotal) {
     '',
     `*Pedido:* #${codigo}`,
     `*Nome:* ${e.nome.trim()}`,
+    `*Celular:* ${e.telefone}`,
     '',
     '*Itens do pedido:*',
     ...itens.flatMap((i) => [
@@ -151,6 +153,7 @@ export default function ModalCarrinho() {
     registrarPedido({
       codigo,
       cliente_nome: endereco.nome.trim(),
+      cliente_telefone: soTelefone(endereco.telefone),
       pagamento: endereco.pagamento,
       troco: endereco.pagamento === 'Dinheiro' ? endereco.troco.trim() || null : null,
       endereco: enderecoCompleto(endereco),

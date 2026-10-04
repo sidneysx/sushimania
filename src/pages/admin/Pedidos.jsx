@@ -1,8 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'motion/react'
-import { AlertTriangle, Bike, ChevronDown, CreditCard, MapPin, Search, ShoppingBag, Trash2 } from 'lucide-react'
+import { AlertTriangle, Bike, ChevronDown, CreditCard, MapPin, Phone, Printer, Search, ShoppingBag, Trash2 } from 'lucide-react'
+import { FaWhatsapp } from 'react-icons/fa6'
+import { useConfig } from '../../context/ConfigContext'
 import { alterarStatusPedido, excluirPedido } from '../../services/pedidos'
+import { mascaraTelefone } from '../../services/conta'
+import { linkWhatsapp } from '../../lib/config'
+import { imprimirComanda, linkMotoboy } from './comanda'
 import { usePainel } from './PainelContext'
 import { Busca, Confirmar, dinheiro, formatarData, Miniatura, STATUS, StatusPedido, Vazio } from './ui'
 
@@ -10,6 +15,7 @@ const FILTROS = [null, ...Object.keys(STATUS)]
 
 export default function Pedidos() {
   const { pedidos, produtos, recarregar, avisar } = usePainel()
+  const { config } = useConfig()
   const [filtro, setFiltro] = useState(null)
   const [busca, setBusca] = useState('')
   const [params] = useSearchParams()
@@ -198,6 +204,22 @@ export default function Pedidos() {
                               )}
                             </span>
                           </p>
+                          {p.cliente_telefone && (
+                            <p className="flex gap-2">
+                              <Phone className="size-4 shrink-0 text-marca" />
+                              <span>
+                                <b>{mascaraTelefone(p.cliente_telefone)}</b>
+                                <a
+                                  href={linkWhatsapp(`55${p.cliente_telefone}`)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="block text-xs font-semibold text-marca hover:underline"
+                                >
+                                  Chamar cliente no WhatsApp
+                                </a>
+                              </span>
+                            </p>
+                          )}
                           <p className="flex gap-2">
                             <CreditCard className="size-4 shrink-0 text-marca" />
                             <span>
@@ -211,6 +233,22 @@ export default function Pedidos() {
                               Bairro sem taxa cadastrada. Combine a entrega pelo WhatsApp e cadastre o bairro em “Bairros e taxas”.
                             </p>
                           )}
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            <a
+                              href={linkMotoboy(p)}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-2 text-xs font-semibold text-white hover:bg-green-700"
+                            >
+                              <FaWhatsapp className="size-4" /> Enviar para motoboy
+                            </a>
+                            <button
+                              onClick={() => imprimirComanda(p, config.nome)}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-neutral-950 px-3 py-2 text-xs font-semibold text-white hover:bg-neutral-800"
+                            >
+                              <Printer className="size-4" /> Imprimir comanda
+                            </button>
+                          </div>
                           <button onClick={() => setApagando(p)} className="inline-flex items-center gap-1.5 pt-2 text-xs font-medium text-neutral-500 hover:text-rose-600">
                             <Trash2 className="size-3.5" /> Apagar pedido
                           </button>

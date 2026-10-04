@@ -52,7 +52,7 @@ export default function EtapaResumo({ endereco }) {
         <div>
           <p className="font-bold">{endereco.pagamento}</p>
           <p className="text-sm text-gray-600">
-            Pedido em nome de {endereco.nome}
+            Pedido em nome de {endereco.nome} · {endereco.telefone}
             {endereco.pagamento === 'Dinheiro' && endereco.troco && ` · troco para ${endereco.troco}`}
           </p>
         </div>

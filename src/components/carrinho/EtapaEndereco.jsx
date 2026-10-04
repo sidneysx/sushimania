@@ -4,6 +4,7 @@ import { FaCircleCheck, FaHouse, FaPlus, FaUser, FaCircleInfo, FaLocationCrossha
 import { useToast } from '../../context/ToastContext'
 import { useConta } from '../../context/ContaContext'
 import { atende, buscarBairros, cepConfere } from '../../services/bairros'
+import { mascaraTelefone, soTelefone, telefoneValido } from '../../services/conta'
 
 // Leaflet só é baixado quando o mapa aparece
 const MapaLocalizacao = lazy(() => import('./MapaLocalizacao'))
@@ -215,10 +216,14 @@ export default function EtapaEndereco({ endereco, setEndereco, bairros }) {
       enderecoSalvoId: '',
     }))
 
-  // Cliente com conta: nome já preenchido e, se ainda não escolheu endereço, o primeiro salvo
+  // Cliente com conta: nome e celular já preenchidos e, se ainda não escolheu endereço, o primeiro salvo
   useEffect(() => {
     if (!cliente || !bairros.length) return
-    setEndereco((atual) => (atual.nome ? atual : { ...atual, nome: cliente.nome }))
+    setEndereco((atual) => ({
+      ...atual,
+      nome: atual.nome || cliente.nome,
+      telefone: atual.telefone || mascaraTelefone(cliente.telefone),
+    }))
     if (enderecos.length && !endereco.enderecoSalvoId && !endereco.endereco && !endereco.bairroId) usarSalvo(enderecos[0])
   }, [cliente?.id, bairros.length, enderecos.length])
 
@@ -309,8 +314,19 @@ export default function EtapaEndereco({ endereco, setEndereco, bairros }) {
         </div>
       )}
 
-      <Campo label="Seu nome:" className="md:col-span-6">
+      <Campo label="Seu nome:" className="md:col-span-3">
         <input id="campo-nome" className={input} value={endereco.nome} onChange={alterar('nome')} autoComplete="name" />
+      </Campo>
+      <Campo label="Seu celular (WhatsApp):" className="md:col-span-3">
+        <input
+          id="campo-telefone"
+          className={input}
+          value={endereco.telefone}
+          onChange={(e) => setEndereco({ ...endereco, telefone: mascaraTelefone(e.target.value) })}
+          inputMode="tel"
+          autoComplete="tel-national"
+          placeholder="(99) 98123-4567"
+        />
       </Campo>
       {mostrarFormulario && (
         <>
@@ -470,6 +486,7 @@ function Situacao({ endereco, divergente }) {
 export function validarEndereco(e, bairros) {
   const erro = (mensagem, campo) => ({ mensagem, campo })
   if (!e.nome.trim()) return erro('Informe o seu nome, por favor.', 'nome')
+  if (!telefoneValido(soTelefone(e.telefone))) return erro('Informe o seu celular com DDD, por favor.', 'telefone')
   // CEP é opcional; se foi digitado, precisa estar completo e encontrado
   const cep = e.cep.replace(/\D/g, '')
   if (cep && cep.length !== 8) return erro('Complete o CEP ou deixe o campo em branco.', 'cep')
