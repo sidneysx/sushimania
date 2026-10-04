@@ -103,6 +103,8 @@ export default function Painel() {
       categorias: dados.categorias.length,
       bairros: dados.bairros.length,
       motoboys: dados.motoboys.length,
+      // motoboy que se cadastrou e espera autorização
+      motoboysPendentes: dados.motoboys.filter((m) => !m.ativo && !m.aprovado_em).length,
       novos: qtdNovos,
     }),
     [dados, qtdNovos],

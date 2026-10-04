@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { listarEnderecos, obterCliente } from '../services/conta'
+import { ehContaMotoboy } from '../services/motoboys'
 
 const ContaContext = createContext(null)
 
@@ -15,6 +16,8 @@ export function ContaProvider({ children }) {
   const [carregando, setCarregando] = useState(true)
 
   const carregar = useCallback(async (user) => {
+    // conta de entregador (/entregador) não é cliente: na loja fica como sem login
+    if (user && ehContaMotoboy(user.email)) user = null
     setUsuario(user ?? null)
     if (!user) {
       setCliente(null)

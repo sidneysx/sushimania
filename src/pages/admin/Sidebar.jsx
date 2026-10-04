@@ -61,7 +61,13 @@ function grupos(c) {
       itens: [
         { rotulo: 'Pedidos', to: '/admin/pedidos', icone: ShoppingBag, contador: c.novos, alerta: c.novos > 0 },
         { rotulo: 'Bairros e taxas', to: '/admin/bairros', icone: Bike, contador: c.bairros },
-        { rotulo: 'Motoboys', to: '/admin/motoboys', icone: Motorbike, contador: c.motoboys },
+        {
+          rotulo: 'Motoboys',
+          to: '/admin/motoboys',
+          icone: Motorbike,
+          contador: c.motoboysPendentes || c.motoboys,
+          alerta: c.motoboysPendentes > 0,
+        },
       ],
     },
     {

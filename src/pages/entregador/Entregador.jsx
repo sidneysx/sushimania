@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'motion/react'
 import {
   ArrowLeft,
+  Ban,
   Bike,
   CheckCircle2,
   ChevronLeft,
@@ -17,6 +18,7 @@ import {
   Navigation,
   Package,
   Phone,
+  User,
   RefreshCw,
   ShieldAlert,
   Wallet,
@@ -25,8 +27,8 @@ import { FaWhatsapp } from 'react-icons/fa6'
 import { supabase } from '../../lib/supabase'
 import { linkWhatsapp } from '../../lib/config'
 import { useConfig } from '../../context/ConfigContext'
-import { entrar, mascaraTelefone, sair, soTelefone, telefoneValido } from '../../services/conta'
-import { criarAcessoMotoboy, marcarStatusMotoboy, meuCadastroMotoboy, meusPedidosDoDia } from '../../services/motoboys'
+import { mascaraTelefone, sair, soTelefone, telefoneValido } from '../../services/conta'
+import { cadastrarMotoboy, ehContaMotoboy, entrarMotoboy, marcarStatusMotoboy, meuCadastroMotoboy, meusPedidosDoDia, situacaoMotoboy, solicitarAcessoMotoboy } from '../../services/motoboys'
 import { dinheiro, formatarData, StatusPedido } from '../admin/ui'
 
 const FINALIZADOS = ['entregue', 'cancelado']
@@ -46,19 +48,29 @@ export default function Entregador() {
 
   // só mostra o carregando quando muda a pessoa logada (não a cada renovação do token)
   const usuarioAtual = useRef()
-  const verificar = useCallback(async (novaSessao) => {
+  const consulta = useRef(0) // vale só a resposta da consulta mais recente
+  const verificar = useCallback(async (novaSessao, forcar = false) => {
     setSessao(novaSessao)
     const id = novaSessao?.user.id ?? null
-    if (id === usuarioAtual.current) return setVerificando(false)
+    if (id === usuarioAtual.current && !forcar) return setVerificando(false)
+    if (id !== usuarioAtual.current) setVerificando(true)
     usuarioAtual.current = id
-    setVerificando(true)
+    const n = ++consulta.current
+    let cadastro = null
     try {
-      setMotoboy(novaSessao ? await meuCadastroMotoboy() : null)
+      cadastro = novaSessao ? await meuCadastroMotoboy() : null
     } catch {
-      setMotoboy(null)
+      // sem cadastro legível: trata como sem acesso
     }
+    if (n !== consulta.current) return
+    setMotoboy(cadastro)
     setVerificando(false)
   }, [])
+
+  const atualizar = useCallback(async () => {
+    const { data } = await supabase.auth.getSession()
+    await verificar(data.session, true)
+  }, [verificar])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => verificar(data.session))
@@ -76,23 +88,17 @@ export default function Entregador() {
       </div>
     )
   }
-  if (!sessao) return <Login />
-  if (!motoboy) {
-    const verificarDeNovo = () => {
-      usuarioAtual.current = undefined
-      verificar(sessao)
-    }
-    return <AguardandoLiberacao sessao={sessao} onVerificar={verificarDeNovo} />
-  }
+  if (!sessao) return <Login onCadastrado={atualizar} />
+  if (!motoboy || situacaoMotoboy(motoboy) !== 'ativo') return <SemAcesso sessao={sessao} motoboy={motoboy} onAtualizar={atualizar} />
   return <PainelMotoboy motoboy={motoboy} />
 }
 
 // ---------------------------------------------------------------------------
 
-function Login() {
+function Login({ onCadastrado }) {
   const { config } = useConfig()
-  const [modo, setModo] = useState('entrar') // 'entrar' | 'primeiro'
-  const [form, setForm] = useState({ telefone: '', senha: '', confirmar: '' })
+  const [modo, setModo] = useState('entrar') // 'entrar' | 'cadastrar'
+  const [form, setForm] = useState({ nome: '', telefone: '', senha: '', confirmar: '' })
   const [verSenha, setVerSenha] = useState(false)
   const [erro, setErro] = useState('')
   const [enviando, setEnviando] = useState(false)
@@ -102,13 +108,18 @@ function Login() {
     setErro('')
     const telefone = soTelefone(form.telefone)
     if (!telefoneValido(telefone)) return setErro('Informe o celular com DDD.')
+    if (modo === 'cadastrar' && !form.nome.trim()) return setErro('Informe o seu nome.')
     if (form.senha.length < 6) return setErro('A senha precisa ter pelo menos 6 caracteres.')
-    if (modo === 'primeiro' && form.senha !== form.confirmar) return setErro('As senhas não conferem.')
+    if (modo === 'cadastrar' && form.senha !== form.confirmar) return setErro('As senhas não conferem.')
     setEnviando(true)
     try {
-      if (modo === 'primeiro') await criarAcessoMotoboy({ telefone, senha: form.senha })
-      else await entrar({ telefone, senha: form.senha })
-      // deu certo: a sessão nova é percebida pelo onAuthStateChange
+      if (modo === 'cadastrar') {
+        await cadastrarMotoboy({ nome: form.nome.trim(), telefone, senha: form.senha })
+        await onCadastrado() // a solicitação foi gravada depois do login: busca de novo
+      } else {
+        await entrarMotoboy({ telefone, senha: form.senha })
+        // deu certo: a sessão nova é percebida pelo onAuthStateChange
+      }
     } catch (err) {
       setErro(err.message)
       setEnviando(false)
@@ -138,6 +149,15 @@ function Login() {
         </div>
 
         <form onSubmit={enviar} className="mt-10 space-y-4 rounded-3xl border border-white/10 bg-white/[0.03] p-6 backdrop-blur">
+          {modo === 'cadastrar' && (
+            <label className="block">
+              <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Seu nome</span>
+              <span className="relative mt-1.5 block">
+                <User className="absolute left-4 top-1/2 size-4 -translate-y-1/2 text-neutral-500" />
+                <input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} autoComplete="name" placeholder="Ex.: João Silva" className={input} />
+              </span>
+            </label>
+          )}
           <label className="block">
             <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Celular</span>
             <span className="relative mt-1.5 block">
@@ -154,12 +174,12 @@ function Login() {
           </label>
 
           <label className="block">
-            <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400">{modo === 'primeiro' ? 'Crie uma senha' : 'Senha'}</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400">{modo === 'cadastrar' ? 'Crie uma senha' : 'Senha'}</span>
             <span className="relative mt-1.5 block">
               <Lock className="absolute left-4 top-1/2 size-4 -translate-y-1/2 text-neutral-500" />
               <input
                 type={verSenha ? 'text' : 'password'}
-                autoComplete={modo === 'primeiro' ? 'new-password' : 'current-password'}
+                autoComplete={modo === 'cadastrar' ? 'new-password' : 'current-password'}
                 value={form.senha}
                 onChange={(e) => setForm({ ...form, senha: e.target.value })}
                 placeholder="••••••••"
@@ -176,7 +196,7 @@ function Login() {
             </span>
           </label>
 
-          {modo === 'primeiro' && (
+          {modo === 'cadastrar' && (
             <label className="block">
               <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Confirme a senha</span>
               <span className="relative mt-1.5 block">
@@ -205,18 +225,18 @@ function Login() {
             className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-marca text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
           >
             {enviando && <Loader2 className="size-4 animate-spin" />}
-            {modo === 'primeiro' ? 'Criar acesso' : 'Entrar'}
+            {modo === 'cadastrar' ? 'Cadastrar e pedir acesso' : 'Entrar'}
           </button>
 
           <button
             type="button"
             onClick={() => {
-              setModo(modo === 'primeiro' ? 'entrar' : 'primeiro')
+              setModo(modo === 'cadastrar' ? 'entrar' : 'cadastrar')
               setErro('')
             }}
             className="w-full text-center text-sm text-neutral-400 hover:text-white"
           >
-            {modo === 'primeiro' ? 'Já tenho senha: entrar' : 'Primeiro acesso? Criar senha'}
+            {modo === 'cadastrar' ? 'Já tenho cadastro: entrar' : 'Novo entregador? Cadastre-se'}
           </button>
         </form>
 
@@ -228,20 +248,95 @@ function Login() {
   )
 }
 
-function AguardandoLiberacao({ sessao, onVerificar }) {
-  const celular = mascaraTelefone(sessao.user.email?.split('@')[0] ?? '')
+// Logado, mas sem acesso às entregas: pede acesso, espera a autorização ou foi bloqueado
+function SemAcesso({ sessao, motoboy, onAtualizar }) {
+  const [nome, setNome] = useState(sessao.user.user_metadata?.nome ?? '')
+  const [erro, setErro] = useState('')
+  const [enviando, setEnviando] = useState(false)
+  const situacao = motoboy ? situacaoMotoboy(motoboy) : null
+  // conta de entregador: o e-mail interno é <celular>@motoboy.sushimania.app
+  const email = sessao.user.email ?? ''
+  const telefone = ehContaMotoboy(email) ? email.split('@')[0] : ''
+
+  // Pendente: confere sozinho de tempos em tempos se a loja já autorizou
+  useEffect(() => {
+    if (situacao !== 'pendente') return
+    const timer = setInterval(onAtualizar, 15000)
+    return () => clearInterval(timer)
+  }, [situacao, onAtualizar])
+
+  const solicitar = async (e) => {
+    e.preventDefault()
+    if (!nome.trim()) return setErro('Informe o seu nome.')
+    setErro('')
+    setEnviando(true)
+    try {
+      await solicitarAcessoMotoboy({ id: sessao.user.id, nome: nome.trim(), telefone })
+      await onAtualizar()
+    } catch (err) {
+      setErro(err.message)
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  const textos = {
+    pendente: {
+      icone: Clock,
+      titulo: 'Aguardando autorização',
+      texto: 'Seu cadastro foi enviado. Assim que a loja autorizar, suas entregas aparecem aqui sozinhas.',
+    },
+    bloqueado: { icone: Ban, titulo: 'Acesso bloqueado', texto: 'A loja suspendeu seu acesso às entregas. Fale com a loja.' },
+  }
+  const t = textos[situacao]
+  const Icone = t?.icone ?? ShieldAlert
+
   return (
     <div className="grid min-h-screen place-items-center bg-neutral-950 px-4 text-center text-white">
-      <div className="max-w-sm">
-        <ShieldAlert className="mx-auto size-10 text-marca" />
-        <p className="mt-4 text-2xl font-semibold">Aguardando liberação</p>
-        <p className="mt-2 text-sm text-neutral-400">
-          Seu acesso {celular && <b className="text-white">{celular}</b>} foi criado. Peça para a loja cadastrar esse celular em <b className="text-white">Painel › Motoboys</b>.
-        </p>
+      <div className="w-full max-w-sm">
+        <Icone className="mx-auto size-10 text-marca" />
+        {t ? (
+          <>
+            <p className="mt-4 text-2xl font-semibold">{t.titulo}</p>
+            <p className="mt-2 text-sm text-neutral-400">
+              <b className="text-white">{motoboy.nome}</b> · {mascaraTelefone(motoboy.telefone)}
+            </p>
+            <p className="mt-2 text-sm text-neutral-400">{t.texto}</p>
+          </>
+        ) : telefone ? (
+          <form onSubmit={solicitar} className="mt-4 space-y-3 text-left">
+            <p className="text-center text-2xl font-semibold">Pedir acesso de entregador</p>
+            <p className="text-center text-sm text-neutral-400">
+              Celular <b className="text-white">{mascaraTelefone(telefone)}</b>. A loja precisa autorizar.
+            </p>
+            <input
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+              placeholder="Seu nome"
+              autoComplete="name"
+              className="h-12 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-sm outline-none focus:border-marca/60"
+            />
+            {erro && <p className="rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-300 ring-1 ring-rose-500/30">{erro}</p>}
+            <button
+              type="submit"
+              disabled={enviando}
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-marca text-sm font-semibold disabled:opacity-60"
+            >
+              {enviando && <Loader2 className="size-4 animate-spin" />} Pedir acesso
+            </button>
+          </form>
+        ) : (
+          <>
+            <p className="mt-4 text-2xl font-semibold">Esta não é uma conta de entregador</p>
+            <p className="mt-2 text-sm text-neutral-400">Você está logado como cliente da loja. Saia e entre (ou cadastre-se) como entregador.</p>
+          </>
+        )}
         <div className="mt-6 flex justify-center gap-3">
-          <button onClick={onVerificar} className="inline-flex h-11 items-center gap-2 rounded-xl bg-marca px-4 text-sm font-semibold text-white">
-            <RefreshCw className="size-4" /> Já fui liberado
-          </button>
+          {situacao === 'pendente' && (
+            <button onClick={onAtualizar} className="inline-flex h-11 items-center gap-2 rounded-xl bg-marca px-4 text-sm font-semibold">
+              <RefreshCw className="size-4" /> Verificar agora
+            </button>
+          )}
           <button onClick={sair} className="inline-flex h-11 items-center gap-2 rounded-xl border border-white/15 px-4 text-sm font-semibold">
             <LogOut className="size-4" /> Sair
           </button>

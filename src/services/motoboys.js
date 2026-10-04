@@ -1,5 +1,11 @@
 import { supabase } from '../lib/supabase'
-import { emailDoTelefone, falhar } from './conta'
+import { falhar } from './conta'
+
+// Conta do entregador é separada da conta de cliente: mesmo celular, e-mail interno diferente.
+// Assim o login de cliente não entra em /entregador e o de entregador não vira cliente na loja.
+const DOMINIO = 'motoboy.sushimania.app'
+export const emailDoMotoboy = (telefone) => `${telefone}@${DOMINIO}`
+export const ehContaMotoboy = (email = '') => email.endsWith(`@${DOMINIO}`)
 
 // ---------- Painel (admin) ----------
 
@@ -9,9 +15,9 @@ export async function listarMotoboys() {
   return data
 }
 
-// A conta precisa existir antes: o motoboy cria a senha em /entregador
-export async function adicionarMotoboy({ nome, telefone }) {
-  const { error } = await supabase.rpc('adicionar_motoboy', { p_nome: nome, p_telefone: telefone })
+// Autorizar a solicitação (ou liberar de novo quem foi bloqueado)
+export async function autorizarMotoboy(id) {
+  const { error } = await supabase.from('motoboys').update({ ativo: true, aprovado_em: new Date().toISOString() }).eq('user_id', id)
   if (error) throw error
 }
 
@@ -38,17 +44,31 @@ export async function atribuirMotoboy(pedidoId, motoboyId) {
 
 // ---------- App do motoboy (/entregador) ----------
 
-// Primeiro acesso: cria só a conta (sem cadastro de cliente); a loja libera depois
-export async function criarAcessoMotoboy({ telefone, senha }) {
-  const { data, error } = await supabase.auth.signUp({ email: emailDoTelefone(telefone), password: senha })
+export async function entrarMotoboy({ telefone, senha }) {
+  const { error } = await supabase.auth.signInWithPassword({ email: emailDoMotoboy(telefone), password: senha })
   if (error) falhar(error)
-  if (!data.session) throw new Error('Acesso criado, mas ainda não liberado. Fale com a loja.')
 }
 
+// Cadastro do motoboy: cria a conta de entregador e já envia a solicitação.
+// Fica pendente até a loja autorizar em Painel > Motoboys.
+export async function cadastrarMotoboy({ nome, telefone, senha }) {
+  const { data, error } = await supabase.auth.signUp({ email: emailDoMotoboy(telefone), password: senha, options: { data: { nome } } })
+  if (error) falhar(error)
+  if (!data.session) throw new Error('Cadastro criado, mas ainda não liberado. Fale com a loja.')
+  await solicitarAcessoMotoboy({ id: data.user.id, nome, telefone })
+}
+
+// Conta de entregador sem solicitação (ex.: foi recusado) pede de novo
+export async function solicitarAcessoMotoboy({ id, nome, telefone }) {
+  const { error } = await supabase.from('motoboys').insert({ user_id: id, nome, telefone })
+  if (error?.code === '23505') throw new Error('Este celular já tem um cadastro de entregador.')
+  if (error) throw error
+}
+
+// null = ainda não pediu acesso; senão a linha dele (pendente, ativo ou bloqueado)
 export async function meuCadastroMotoboy() {
-  const { data: ativo } = await supabase.rpc('is_motoboy')
-  if (ativo !== true) return null
   const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
   const { data, error } = await supabase.from('motoboys').select('*').eq('user_id', user.id).maybeSingle()
   if (error) throw error
   return data
@@ -80,3 +100,5 @@ export async function marcarStatusMotoboy(pedidoId, status) {
   const { error } = await supabase.rpc('motoboy_status', { p_pedido: pedidoId, p_status: status })
   if (error) throw error
 }
+
+export const situacaoMotoboy = (m) => (m.ativo ? 'ativo' : m.aprovado_em ? 'bloqueado' : 'pendente')
