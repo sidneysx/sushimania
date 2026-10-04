@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
-import { Bike, Copy, ExternalLink, Phone, Trash2, UserPlus } from 'lucide-react'
+import { Bike, Copy, ExternalLink, Phone, Pin, Trash2, UserPlus } from 'lucide-react'
 import { mascaraTelefone, soTelefone, telefoneValido } from '../../services/conta'
-import { adicionarMotoboy, alterarMotoboy, removerMotoboy } from '../../services/motoboys'
+import { adicionarMotoboy, alterarMotoboy, definirMotoboyFixo, removerMotoboy } from '../../services/motoboys'
 import { usePainel } from './PainelContext'
 import { Botao, Campo, Cartao, classeInput, Confirmar, dinheiro, Vazio } from './ui'
 
@@ -61,6 +61,16 @@ export default function Motoboys() {
     }
   }
 
+  const alternarFixo = async (m) => {
+    try {
+      await definirMotoboyFixo(m.fixo ? null : m.user_id)
+      await recarregar()
+      avisar(m.fixo ? 'Nenhum motoboy fixo: escolha no pedido' : `Pedidos novos vão direto para ${m.nome}`)
+    } catch (err) {
+      avisar(err.message, 'erro')
+    }
+  }
+
   const remover = async () => {
     setConfirmando(true)
     try {
@@ -96,7 +106,9 @@ export default function Motoboys() {
               O motoboy abre <b>/entregador</b> no celular e toca em <b>“Primeiro acesso”</b> para criar a senha.
             </li>
             <li>Você cadastra aqui o mesmo celular.</li>
-            <li>Em Pedidos, escolha o motoboy no pedido: ele vê na hora.</li>
+            <li>
+              Marque um como <b>fixo</b> para todo pedido novo ir direto para ele, ou escolha o motoboy em cada pedido.
+            </li>
           </ol>
           <div className="mt-3 flex gap-2">
             <Botao type="button" variante="secundario" onClick={copiar} className="flex-1">
@@ -159,6 +171,18 @@ export default function Motoboys() {
                       {m.ativo ? 'Ativo' : 'Bloqueado'}
                     </span>
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={() => alternarFixo(m)}
+                    disabled={!m.ativo}
+                    className={`mt-3 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                      m.fixo ? 'bg-neutral-950 text-white' : 'bg-neutral-50 text-neutral-600 ring-1 ring-neutral-200 hover:ring-marca/50'
+                    }`}
+                  >
+                    <Pin className={`size-3.5 ${m.fixo ? 'fill-marca text-marca' : ''}`} />
+                    {m.fixo ? 'Fixo: recebe todos os pedidos novos' : 'Tornar motoboy fixo'}
+                  </button>
 
                   <div className="mt-4 grid grid-cols-3 gap-2 text-center">
                     <div className="rounded-xl bg-neutral-50 p-2">

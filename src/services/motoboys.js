@@ -20,6 +20,12 @@ export async function alterarMotoboy(id, campos) {
   if (error) throw error
 }
 
+// Motoboy fixo recebe todo pedido novo do site (null = nenhum)
+export async function definirMotoboyFixo(id) {
+  const { error } = await supabase.rpc('definir_motoboy_fixo', { p_motoboy: id })
+  if (error) throw error
+}
+
 export async function removerMotoboy(id) {
   const { error } = await supabase.from('motoboys').delete().eq('user_id', id)
   if (error) throw error
